@@ -222,4 +222,4 @@ yarn-error.log*
 # misc
 CLAUDE.md
 initial_ideas.md
-.github
+.github/*
