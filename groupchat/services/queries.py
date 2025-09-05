@@ -498,3 +498,91 @@ class QueryService:
 
         self.db.add(entry)
         logger.debug(f"Created ledger entry: {entry_type.value} ${amount_cents/100:.2f}")
+
+    async def send_outreach_to_experts(
+        self,
+        query_id: UUID,
+        user_name: str = "Someone"
+    ) -> dict[str, Any]:
+        """Send SMS outreach to matched experts for a query"""
+        query = await self.get_query(query_id)
+        if not query:
+            raise ValueError("Query not found")
+        
+        if query.status != QueryStatus.COLLECTING:
+            raise ValueError("Query must be in COLLECTING status for outreach")
+        
+        # Get expert matches from stored context
+        expert_matches = await self.get_expert_matches(query_id)
+        if not expert_matches or not expert_matches.get("matches"):
+            raise ValueError("No expert matches found for query")
+        
+        # Import SMS service
+        from groupchat.services.sms import SMSService
+        from groupchat.services.contacts import ContactService
+        
+        # Get contact details for matched experts
+        contact_service = ContactService(self.db)
+        expert_contacts = []
+        
+        for match in expert_matches["matches"]:
+            expert_id = UUID(match["expert_id"])
+            contact = await contact_service.get_contact_by_id(expert_id)
+            if contact:
+                expert_contacts.append(contact)
+        
+        # Send SMS to experts
+        sms_service = SMSService(self.db)
+        results = await sms_service.send_query_to_experts(
+            query=query,
+            expert_contacts=expert_contacts,
+            user_name=user_name
+        )
+        
+        # Update query context with outreach results
+        outreach_data = {
+            "sent_at": datetime.utcnow().isoformat(),
+            "sent_to": len(results["sent"]),
+            "failed": len(results["failed"]),
+            "skipped": len(results["skipped"]),
+            "details": results
+        }
+        
+        await self._update_query_context(query_id, "sms_outreach", outreach_data)
+        
+        logger.info(f"SMS outreach completed for query {query_id}: "
+                   f"{len(results['sent'])} sent, {len(results['failed'])} failed, "
+                   f"{len(results['skipped'])} skipped")
+        
+        return {
+            "success": True,
+            "query_id": query_id,
+            "outreach_results": results,
+            "total_experts": len(expert_contacts),
+            "messages_sent": len(results["sent"])
+        }
+
+    async def _update_query_context(
+        self,
+        query_id: UUID,
+        key: str,
+        data: Any
+    ) -> None:
+        """Update a specific key in query context"""
+        from sqlalchemy import update as sql_update
+        
+        stmt = (
+            sql_update(Query)
+            .where(Query.id == query_id)
+            .values(
+                context=func.jsonb_set(
+                    Query.context,
+                    [key],
+                    func.cast(data, type_=func.jsonb())
+                ),
+                updated_at=datetime.utcnow()
+            )
+        )
+        
+        await self.db.execute(stmt)
+        await self.db.commit()

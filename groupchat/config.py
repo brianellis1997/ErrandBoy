@@ -1,7 +1,7 @@
 """Application configuration using Pydantic Settings"""
 
 
-from pydantic import Field, PostgresDsn, RedisDsn
+from pydantic import Field, PostgresDsn, RedisDsn, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -71,6 +71,84 @@ class Settings(BaseSettings):
     trust_score_weight: float = Field(default=0.15)
     availability_weight: float = Field(default=0.10)
     responsiveness_weight: float = Field(default=0.10)
+
+    @field_validator('twilio_phone_number')
+    @classmethod
+    def validate_twilio_phone_number(cls, v):
+        """Validate Twilio phone number format"""
+        if v is not None and not v.startswith('+'):
+            raise ValueError('Twilio phone number must start with +')
+        return v
+
+    def is_sms_configured(self) -> bool:
+        """Check if SMS/Twilio is properly configured"""
+        return all([
+            self.enable_sms,
+            self.twilio_account_sid,
+            self.twilio_auth_token,
+            self.twilio_phone_number
+        ])
+
+    def is_payments_configured(self) -> bool:
+        """Check if payments/Stripe is properly configured"""
+        return all([
+            self.enable_payments,
+            self.stripe_secret_key,
+            self.stripe_webhook_secret
+        ])
+
+    def validate_configuration(self) -> dict[str, list[str]]:
+        """Validate configuration and return any issues"""
+        issues = {"errors": [], "warnings": []}
+        
+        # SMS configuration validation
+        if self.enable_sms:
+            if not self.twilio_account_sid:
+                issues["errors"].append("SMS enabled but twilio_account_sid not configured")
+            if not self.twilio_auth_token:
+                issues["errors"].append("SMS enabled but twilio_auth_token not configured")
+            if not self.twilio_phone_number:
+                issues["errors"].append("SMS enabled but twilio_phone_number not configured")
+            elif not self.twilio_phone_number.startswith('+'):
+                issues["errors"].append("twilio_phone_number must start with +")
+        
+        # Payment configuration validation
+        if self.enable_payments:
+            if not self.stripe_secret_key:
+                issues["errors"].append("Payments enabled but stripe_secret_key not configured")
+            if not self.stripe_webhook_secret:
+                issues["errors"].append("Payments enabled but stripe_webhook_secret not configured")
+        
+        # Percentage validation
+        total_percentage = (
+            self.contributor_pool_percentage + 
+            self.platform_percentage + 
+            self.referrer_percentage
+        )
+        if abs(total_percentage - 1.0) > 0.01:  # Allow small floating point differences
+            issues["errors"].append(f"Payment percentages must sum to 1.0, got {total_percentage}")
+        
+        # Matching weights validation
+        total_weight = (
+            self.embedding_weight + 
+            self.tag_overlap_weight + 
+            self.trust_score_weight + 
+            self.availability_weight + 
+            self.responsiveness_weight
+        )
+        if abs(total_weight - 1.0) > 0.01:
+            issues["warnings"].append(f"Matching weights should sum to 1.0, got {total_weight}")
+        
+        # Security warnings
+        if self.app_env == "production":
+            if self.app_debug:
+                issues["warnings"].append("Debug mode enabled in production")
+            if self.app_secret_key == "change-me-in-production":
+                issues["errors"].append("Default secret key used in production")
+            if self.jwt_secret_key == "change-me-in-production":
+                issues["errors"].append("Default JWT secret key used in production")
+        
+        return issues
 
 
 settings = Settings()

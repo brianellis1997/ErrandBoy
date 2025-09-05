@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from groupchat.config import settings
 from groupchat.db.database import get_db
+from groupchat.services.sms import SMSService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -31,18 +32,27 @@ async def twilio_webhook(
         message_body = form_data.get("Body")
         message_sid = form_data.get("MessageSid")
 
+        if not all([from_number, message_body, message_sid]):
+            logger.error("Missing required Twilio webhook parameters")
+            raise HTTPException(status_code=400, detail="Invalid webhook data")
+
         logger.info(f"Received SMS from {from_number}: {message_body[:50]}...")
 
-        # TODO: Process the incoming message
-        # 1. Find the contact by phone number
-        # 2. Match to active query
-        # 3. Store as contribution
-        # 4. Send acknowledgment
+        # Process the incoming message using SMS service
+        sms_service = SMSService(db)
+        result = await sms_service.process_incoming_sms(
+            from_number=from_number,
+            message_body=message_body,
+            message_sid=message_sid
+        )
 
-        # Return TwiML response
+        logger.info(f"SMS processed: {result}")
+
+        # Return success response for Twilio
         return {
-            "message": "Message received",
-            "status": "processed",
+            "message": "Message processed successfully",
+            "status": result.get("status", "processed"),
+            "action": result.get("action", "unknown")
         }
 
     except Exception as e:

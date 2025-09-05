@@ -75,3 +75,48 @@ async def readiness_check(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
 async def liveness_check() -> dict[str, str]:
     """Kubernetes liveness probe endpoint"""
     return {"status": "alive"}
+
+
+@router.get("/config")
+async def configuration_check() -> dict[str, Any]:
+    """Configuration validation endpoint"""
+    issues = settings.validate_configuration()
+    
+    service_status = {
+        "sms": {
+            "enabled": settings.enable_sms,
+            "configured": settings.is_sms_configured(),
+            "config": {
+                "has_account_sid": bool(settings.twilio_account_sid),
+                "has_auth_token": bool(settings.twilio_auth_token),
+                "has_phone_number": bool(settings.twilio_phone_number),
+            }
+        },
+        "payments": {
+            "enabled": settings.enable_payments,
+            "configured": settings.is_payments_configured(),
+            "config": {
+                "has_stripe_key": bool(settings.stripe_secret_key),
+                "has_webhook_secret": bool(settings.stripe_webhook_secret),
+            }
+        },
+        "embeddings": {
+            "enabled": settings.enable_real_embeddings,
+            "configured": bool(settings.openai_api_key),
+        }
+    }
+    
+    # Overall status
+    status = "healthy"
+    if issues["errors"]:
+        status = "unhealthy"
+    elif issues["warnings"]:
+        status = "degraded"
+    
+    return {
+        "status": status,
+        "timestamp": datetime.utcnow().isoformat(),
+        "environment": settings.app_env,
+        "services": service_status,
+        "validation": issues
+    }

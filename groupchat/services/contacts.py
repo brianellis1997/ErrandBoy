@@ -86,6 +86,10 @@ class ContactService:
         """Get contact by phone number"""
         return await self._get_contact_by_phone(phone_number)
 
+    async def get_contact_by_id(self, contact_id: UUID) -> Contact | None:
+        """Get contact by ID (alias for get_contact)"""
+        return await self.get_contact(contact_id)
+
     async def update_contact(
         self, contact_id: UUID, update_data: ContactUpdate
     ) -> Contact | None:
