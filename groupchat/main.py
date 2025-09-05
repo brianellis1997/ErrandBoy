@@ -8,9 +8,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from groupchat.api import contacts, health, matching, queries, webhooks
+from groupchat.api import admin, contacts, health, matching, queries, webhooks
 from groupchat.config import settings
 from groupchat.db.database import close_db, init_db
+from groupchat.middleware.request_id import RequestIDMiddleware
+from groupchat.middleware.rate_limit import RateLimitMiddleware
+from groupchat.middleware.logging import LoggingMiddleware
 from groupchat.utils.logging import setup_logging
 
 # Set up logging
@@ -47,7 +50,7 @@ app = FastAPI(
     redoc_url="/redoc" if settings.app_debug else None,
 )
 
-# Configure CORS
+# Configure middleware (order matters - last added runs first)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -55,6 +58,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add custom middleware
+app.add_middleware(LoggingMiddleware)
+app.add_middleware(
+    RateLimitMiddleware,
+    requests_per_minute=60,
+    requests_per_hour=1000,
+    enable_rate_limiting=settings.app_env != "development",
+)
+app.add_middleware(RequestIDMiddleware)
 
 
 # Root endpoint
@@ -90,6 +103,11 @@ app.include_router(
     webhooks.router,
     prefix="/api/v1/webhooks",
     tags=["webhooks"]
+)
+app.include_router(
+    admin.router,
+    prefix="/api/v1/admin",
+    tags=["admin"]
 )
 
 
