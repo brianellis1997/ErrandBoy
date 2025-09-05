@@ -12,6 +12,8 @@ from alembic import context
 # Import your models here
 from groupchat.db.database import Base
 from groupchat.config import settings
+# Import all models to ensure they're registered with SQLAlchemy
+from groupchat.db import models
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
