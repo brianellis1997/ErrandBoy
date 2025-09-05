@@ -2,15 +2,15 @@
 
 import logging
 from contextlib import asynccontextmanager
-from typing import Any, Dict
+from typing import Any
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from groupchat.api import contacts, health, queries, webhooks
 from groupchat.config import settings
-from groupchat.api import health, contacts, queries, webhooks
-from groupchat.db.database import init_db, close_db
+from groupchat.db.database import close_db, init_db
 from groupchat.utils.logging import setup_logging
 
 # Set up logging
@@ -22,15 +22,15 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Manage application lifecycle"""
     logger.info("Starting GroupChat application...")
-    
+
     # Initialize database connection
     await init_db()
-    
+
     # Add any other startup tasks here
     logger.info("Application startup complete")
-    
+
     yield
-    
+
     # Cleanup
     logger.info("Shutting down GroupChat application...")
     await close_db()
@@ -59,7 +59,7 @@ app.add_middleware(
 
 # Root endpoint
 @app.get("/", response_class=JSONResponse)
-async def root() -> Dict[str, Any]:
+async def root() -> dict[str, Any]:
     """Root endpoint"""
     return {
         "name": "GroupChat API",
@@ -72,18 +72,18 @@ async def root() -> Dict[str, Any]:
 # Include routers
 app.include_router(health.router, prefix="/health", tags=["health"])
 app.include_router(
-    contacts.router, 
-    prefix="/api/v1/contacts", 
+    contacts.router,
+    prefix="/api/v1/contacts",
     tags=["contacts"]
 )
 app.include_router(
-    queries.router, 
-    prefix="/api/v1/queries", 
+    queries.router,
+    prefix="/api/v1/queries",
     tags=["queries"]
 )
 app.include_router(
-    webhooks.router, 
-    prefix="/api/v1/webhooks", 
+    webhooks.router,
+    prefix="/api/v1/webhooks",
     tags=["webhooks"]
 )
 
@@ -104,7 +104,7 @@ async def global_exception_handler(request, exc):
 
 if __name__ == "__main__":
     import uvicorn
-    
+
     uvicorn.run(
         "groupchat.main:app",
         host=settings.app_host,

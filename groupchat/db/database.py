@@ -1,12 +1,12 @@
 """Database connection and session management"""
 
 import logging
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
-    create_async_engine,
     async_sessionmaker,
+    create_async_engine,
 )
 from sqlalchemy.orm import declarative_base
 
@@ -41,7 +41,7 @@ async def init_db() -> None:
         if "user:password" in str(settings.database_url):
             logger.warning("Database not configured - using mock mode")
             return
-            
+
         # Test connection
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
