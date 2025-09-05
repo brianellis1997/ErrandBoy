@@ -21,6 +21,7 @@ from groupchat.db.models import (
     TransactionType,
 )
 from groupchat.schemas.queries import AcceptAnswerRequest, QueryCreate, QueryUpdate
+from groupchat.schemas.matching import MatchingRequest
 
 logger = logging.getLogger(__name__)
 
@@ -326,6 +327,138 @@ class QueryService:
         }
 
         return new in valid_transitions.get(current, [])
+
+    async def route_query_to_experts(
+        self,
+        query_id: UUID,
+        max_experts: int | None = None,
+        location_boost: bool = True
+    ) -> dict[str, Any]:
+        """
+        Route a query to matched experts and update status to ROUTING
+        Integration point with the matching algorithm
+        """
+        query = await self.get_query(query_id)
+        if not query:
+            raise ValueError("Query not found")
+        
+        if query.status != QueryStatus.PENDING:
+            raise ValueError("Can only route pending queries")
+        
+        # Update status to ROUTING
+        await self.update_status(query_id, QueryStatus.ROUTING)
+        
+        try:
+            # Import here to avoid circular dependency
+            from groupchat.services.matching import ExpertMatchingService
+            
+            matching_service = ExpertMatchingService(self.db)
+            
+            # Create matching request
+            request = MatchingRequest(
+                query_id=query_id,
+                limit=max_experts or query.max_experts,
+                location_boost=location_boost,
+                exclude_recent=True,
+                wave_size=3
+            )
+            
+            # Get expert matches
+            matching_result = await matching_service.match_experts(query, request)
+            
+            # Store matching results in query context for later use
+            await self._store_matching_results(query_id, matching_result)
+            
+            # Update status to COLLECTING (ready for outreach)
+            await self.update_status(query_id, QueryStatus.COLLECTING)
+            
+            logger.info(
+                f"Routed query {query_id} to {len(matching_result.matches)} experts "
+                f"in {matching_result.search_time_ms:.2f}ms"
+            )
+            
+            return {
+                "success": True,
+                "query_id": query_id,
+                "experts_matched": len(matching_result.matches),
+                "matching_time_ms": matching_result.search_time_ms,
+                "wave_groups": max(match.wave_group for match in matching_result.matches) if matching_result.matches else 0,
+                "top_matches": [
+                    {
+                        "expert_id": match.contact.id,
+                        "name": match.contact.name,
+                        "score": match.scores.final_score,
+                        "reasons": match.match_reasons[:3]  # Top 3 reasons
+                    }
+                    for match in matching_result.matches[:5]  # Top 5 for summary
+                ]
+            }
+            
+        except Exception as e:
+            # Rollback status on error
+            await self.update_status(query_id, QueryStatus.FAILED, str(e))
+            logger.error(f"Failed to route query {query_id}: {e}")
+            raise
+    
+    async def get_expert_matches(self, query_id: UUID) -> dict[str, Any] | None:
+        """Get stored expert matching results for a query"""
+        query = await self.get_query(query_id)
+        if not query:
+            return None
+        
+        return query.context.get("expert_matches")
+    
+    async def _store_matching_results(
+        self,
+        query_id: UUID,
+        matching_result
+    ) -> None:
+        """Store matching results in query context"""
+        from sqlalchemy import update as sql_update
+        
+        # Convert matching result to storable format
+        expert_matches = {
+            "total_candidates": matching_result.total_candidates,
+            "search_time_ms": matching_result.search_time_ms,
+            "matching_strategy": matching_result.matching_strategy,
+            "matches": [
+                {
+                    "expert_id": str(match.contact.id),
+                    "expert_name": match.contact.name,
+                    "scores": {
+                        "final_score": match.scores.final_score,
+                        "embedding_similarity": match.scores.embedding_similarity,
+                        "tag_overlap": match.scores.tag_overlap,
+                        "trust_score": match.scores.trust_score,
+                        "availability_boost": match.scores.availability_boost,
+                        "responsiveness_rate": match.scores.responsiveness_rate,
+                        "geographic_boost": match.scores.geographic_boost
+                    },
+                    "match_reasons": match.match_reasons,
+                    "distance_km": match.distance_km,
+                    "wave_group": match.wave_group,
+                    "availability_status": match.availability_status
+                }
+                for match in matching_result.matches
+            ]
+        }
+        
+        # Update query context with matching results
+        stmt = (
+            sql_update(Query)
+            .where(Query.id == query_id)
+            .values(
+                context=func.jsonb_set(
+                    Query.context,
+                    ['expert_matches'],
+                    func.cast(expert_matches, type_=func.jsonb())
+                ),
+                updated_at=datetime.utcnow()
+            )
+        )
+        
+        await self.db.execute(stmt)
+        await self.db.commit()
 
     async def _create_ledger_entry(
         self,

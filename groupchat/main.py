@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from groupchat.api import contacts, health, queries, webhooks
+from groupchat.api import contacts, health, matching, queries, webhooks
 from groupchat.config import settings
 from groupchat.db.database import close_db, init_db
 from groupchat.utils.logging import setup_logging
@@ -80,6 +80,11 @@ app.include_router(
     queries.router,
     prefix="/api/v1/queries",
     tags=["queries"]
+)
+app.include_router(
+    matching.router,
+    prefix="/api/v1/matching",
+    tags=["matching"]
 )
 app.include_router(
     webhooks.router,

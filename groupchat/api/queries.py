@@ -183,6 +183,67 @@ async def get_query_status(
         )
 
 
+@router.post("/{query_id}/route")
+async def route_query_to_experts(
+    query_id: UUID,
+    max_experts: int = QueryParam(default=None, ge=1, le=20),
+    location_boost: bool = QueryParam(default=True),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Route a query to matched experts"""
+    try:
+        service = QueryService(db)
+        result = await service.route_query_to_experts(
+            query_id=query_id,
+            max_experts=max_experts,
+            location_boost=location_boost
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error routing query {query_id}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error during query routing"
+        )
+
+
+@router.get("/{query_id}/matches")
+async def get_expert_matches(
+    query_id: UUID,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Get expert matching results for a query"""
+    try:
+        service = QueryService(db)
+        matches = await service.get_expert_matches(query_id)
+        
+        if matches is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Query not found or no matching results available"
+            )
+        
+        return {
+            "query_id": query_id,
+            "expert_matches": matches
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting expert matches for query {query_id}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error"
+        )
+
+
 @router.get("/{query_id}/contributions", response_model=ContributionListResponse)
 async def get_query_contributions(
     query_id: UUID,
