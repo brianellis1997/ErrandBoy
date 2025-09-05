@@ -197,6 +197,13 @@ class QueryService:
         )
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
+    
+    async def trigger_synthesis(self, query_id: UUID) -> CompiledAnswer:
+        """Trigger answer synthesis for a query"""
+        from groupchat.services.synthesis import SynthesisService
+        
+        synthesis_service = SynthesisService(self.db)
+        return await synthesis_service.synthesize_answer(query_id)
 
     async def accept_answer(
         self,

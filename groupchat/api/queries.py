@@ -14,6 +14,7 @@ from groupchat.schemas.queries import (
     AcceptAnswerResponse,
     CompiledAnswerResponse,
     ContributionListResponse,
+    ContributionResponse,
     QueryCreate,
     QueryDetailResponse,
     QueryListResponse,
@@ -22,6 +23,7 @@ from groupchat.schemas.queries import (
     QueryUpdate,
 )
 from groupchat.services.queries import QueryService
+from groupchat.services.synthesis import SynthesisService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -287,6 +289,61 @@ async def get_query_answer(
         raise
     except Exception as e:
         logger.error(f"Error getting answer for query {query_id}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error"
+        )
+
+
+@router.post("/{query_id}/synthesize")
+async def synthesize_answer(
+    query_id: UUID,
+    custom_prompt: str | None = None,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Synthesize contributions into a final answer with citations"""
+    try:
+        service = SynthesisService(db)
+        compiled_answer = await service.synthesize_answer(query_id, custom_prompt)
+        
+        # Get the compiled answer with citations for response
+        query_service = QueryService(db)
+        answer_with_citations = await query_service.get_query_answer(query_id)
+        
+        return {
+            "success": True,
+            "message": "Answer synthesized successfully",
+            "answer_id": compiled_answer.id,
+            "answer": CompiledAnswerResponse.model_validate(answer_with_citations)
+        }
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error(f"Error synthesizing answer for query {query_id}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error during synthesis"
+        )
+
+
+@router.get("/{query_id}/synthesis/status")
+async def get_synthesis_status(
+    query_id: UUID,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Get the synthesis status for a query"""
+    try:
+        service = SynthesisService(db)
+        status = await service.get_synthesis_status(query_id)
+        return {
+            "query_id": query_id,
+            **status
+        }
+    except Exception as e:
+        logger.error(f"Error getting synthesis status for query {query_id}: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
