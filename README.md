@@ -63,6 +63,67 @@ poetry run uvicorn groupchat.main:app --reload
 7. **View API documentation**
 Open http://localhost:8000/docs in your browser
 
+## Demo System
+
+GroupChat includes a comprehensive demo system for presentations and testing. The demo orchestrates the complete end-to-end workflow with realistic scenarios and expert responses.
+
+### Quick Demo
+
+1. **Access Demo Control Panel**
+   ```
+   http://localhost:8000/demo
+   ```
+
+2. **Available Demo Scenarios**
+   - **Technical Question**: PostgreSQL scaling with database experts
+   - **Business Strategy**: Startup product-market fit with industry experts  
+   - **Creative Problem**: Remote team collaboration with UX and leadership experts
+
+3. **Demo Modes**
+   - **Fast Mode**: 10x accelerated timing for quick presentations
+   - **Realistic Mode**: Production-like timing and behavior
+   - **Manual Mode**: Full manual control over progression
+
+### Demo Features
+
+- 🎭 **End-to-End Workflow**: Complete question → expert responses → synthesized answer
+- 🖥️ **Multi-Screen Coordination**: Synchronized views across user, expert, and admin interfaces
+- ⏯️ **Full Control**: Start, pause, resume, reset, and skip functionality
+- 📊 **Real-Time Progress**: Live updates via WebSocket connections
+- 🎯 **Realistic Scenarios**: Pre-crafted questions with expert responses and citations
+- 💰 **Payment Simulation**: Demonstrates micropayment distribution
+
+### API Usage
+
+```bash
+# List available scenarios
+curl http://localhost:8000/api/v1/demo/scenarios
+
+# Start a demo
+curl -X POST http://localhost:8000/api/v1/demo/start \
+  -H "Content-Type: application/json" \
+  -d '{"scenario_id": "tech-scaling", "mode": "fast"}'
+
+# Check demo status  
+curl http://localhost:8000/api/v1/demo/status
+
+# Control demo (pause/resume/reset)
+curl -X POST http://localhost:8000/api/v1/demo/control \
+  -H "Content-Type: application/json" \
+  -d '{"action": "reset"}'
+```
+
+### Multi-Screen Setup
+
+For presentations, the demo system supports coordinated multi-screen setups:
+
+1. **Primary Screen**: Demo control panel (`/demo`)
+2. **User Screen**: Query submission interface (`/`)  
+3. **Expert Screen**: Expert response interface (`/expert`)
+4. **Admin Screen**: System monitoring dashboard (`/admin`)
+
+All screens are synchronized via WebSocket connections and update in real-time as the demo progresses.
+
 ## Project Structure
 
 ```
