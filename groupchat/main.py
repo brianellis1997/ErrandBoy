@@ -186,6 +186,23 @@ async def answer_page(query_id: str):
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url=f"/static/answer.html?query_id={query_id}")
 
+
+# Expert interface route
+@app.get("/expert")
+async def expert_interface():
+    """Serve expert response interface"""
+    from fastapi.responses import FileResponse
+    import os
+    
+    # Check if expert.html exists
+    static_path = os.path.join("static", "expert.html")
+    if os.path.exists(static_path):
+        return FileResponse(static_path)
+    else:
+        # Fallback to redirect to static file
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/static/expert.html")
+
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 

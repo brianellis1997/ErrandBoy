@@ -20,7 +20,7 @@ from groupchat.db.models import (
     QueryStatus,
     TransactionType,
 )
-from groupchat.schemas.queries import AcceptAnswerRequest, QueryCreate, QueryUpdate
+from groupchat.schemas.queries import AcceptAnswerRequest, ContributionCreate, QueryCreate, QueryUpdate
 from groupchat.schemas.matching import MatchingRequest
 
 logger = logging.getLogger(__name__)
@@ -586,3 +586,53 @@ class QueryService:
         
         await self.db.execute(stmt)
         await self.db.commit()
+
+
+    async def create_contribution(self, query_id: UUID, contribution_data: ContributionCreate) -> Contribution | None:
+        """Create a new contribution for a query (expert response)"""
+        
+        # First, verify the query exists and is accepting contributions
+        query = await self.get_query(query_id)
+        if not query:
+            return None
+            
+        if query.status not in [QueryStatus.COLLECTING, QueryStatus.ROUTING]:
+            raise ValueError(f"Query {query_id} is not accepting contributions (status: {query.status})")
+        
+        # Create the contribution record
+        contribution = Contribution(
+            id=uuid.uuid4(),
+            query_id=query_id,
+            contact_id=None,  # For demo purposes, we don't link to specific contacts
+            response_text=contribution_data.response_text,
+            confidence_score=contribution_data.confidence_score,
+            requested_at=datetime.utcnow(),  # Mark as requested now
+            responded_at=datetime.utcnow(),  # And responded immediately
+            response_time_minutes=0.0,  # Instant response for demo
+            was_used=False,  # Will be marked true during synthesis
+            quality_rating=None,
+            payout_amount_cents=0,  # Will be calculated during payment processing
+            extra_metadata={
+                "source_links": contribution_data.source_links,
+                "expert_name": contribution_data.expert_name,
+                "demo_contribution": True,
+                "submitted_via": "expert_interface"
+            }
+        )
+        
+        try:
+            self.db.add(contribution)
+            await self.db.commit()
+            await self.db.refresh(contribution)
+            
+            # Update query status to collecting if it wasn't already
+            if query.status == QueryStatus.ROUTING:
+                await self.update_status(query_id, QueryStatus.COLLECTING, "Expert contributions being collected")
+            
+            logger.info(f"Created contribution {contribution.id} for query {query_id}")
+            return contribution
+            
+        except Exception as e:
+            await self.db.rollback()
+            logger.error(f"Error creating contribution for query {query_id}: {e}", exc_info=True)
+            raise

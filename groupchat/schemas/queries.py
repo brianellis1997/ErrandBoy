@@ -64,6 +64,21 @@ class QueryListResponse(BaseModel):
     limit: int
 
 
+class ContributionCreate(BaseModel):
+    response_text: str = Field(..., min_length=50, max_length=1000)
+    confidence_score: float = Field(..., ge=0.1, le=1.0)
+    source_links: str | None = Field(None, max_length=500)
+    expert_name: str | None = Field(None, max_length=100)
+
+    @field_validator("confidence_score")
+    @classmethod
+    def validate_confidence(cls, v: float) -> float:
+        """Convert 1-10 scale to 0.1-1.0 if needed"""
+        if v > 1.0:
+            v = v / 10.0
+        return max(0.1, min(1.0, v))
+
+
 class ContributionResponse(BaseModel):
     id: UUID
     contact_id: UUID | None

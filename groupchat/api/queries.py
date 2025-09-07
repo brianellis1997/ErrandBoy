@@ -13,6 +13,7 @@ from groupchat.schemas.queries import (
     AcceptAnswerRequest,
     AcceptAnswerResponse,
     CompiledAnswerResponse,
+    ContributionCreate,
     ContributionListResponse,
     ContributionResponse,
     QueryCreate,
@@ -369,6 +370,39 @@ async def accept_answer(
         )
     except Exception as e:
         logger.error(f"Error accepting answer for query {query_id}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error"
+        )
+
+
+@router.post("/{query_id}/contributions", response_model=ContributionResponse, status_code=status.HTTP_201_CREATED)
+async def submit_contribution(
+    query_id: UUID,
+    contribution_data: ContributionCreate,
+    db: AsyncSession = Depends(get_db),
+) -> ContributionResponse:
+    """Submit a contribution/response to a query"""
+    try:
+        service = QueryService(db)
+        contribution = await service.create_contribution(query_id, contribution_data)
+        
+        if not contribution:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Query not found or not accepting contributions"
+            )
+            
+        return ContributionResponse.model_validate(contribution)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error submitting contribution for query {query_id}: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
