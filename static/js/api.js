@@ -81,6 +81,71 @@ class APIClient {
             method: 'GET'
         });
     }
+
+    /**
+     * Generic GET request
+     */
+    async get(endpoint) {
+        return this.wrapResponse(this.request(endpoint, { method: 'GET' }));
+    }
+
+    /**
+     * Generic POST request
+     */
+    async post(endpoint, data) {
+        return this.wrapResponse(this.request(endpoint, {
+            method: 'POST',
+            body: JSON.stringify(data)
+        }));
+    }
+
+    /**
+     * Wrap response in success/error format
+     */
+    async wrapResponse(promise) {
+        try {
+            const data = await promise;
+            return { success: true, data };
+        } catch (error) {
+            return { success: false, error: error.message, details: error };
+        }
+    }
+
+    /**
+     * Get compiled answer for a query
+     */
+    async getQueryAnswer(queryId) {
+        return this.wrapResponse(this.request(`queries/${queryId}/answer`, {
+            method: 'GET'
+        }));
+    }
+
+    /**
+     * Get contributions for a query
+     */
+    async getQueryContributions(queryId) {
+        return this.wrapResponse(this.request(`queries/${queryId}/contributions`, {
+            method: 'GET'
+        }));
+    }
+
+    /**
+     * Get query details
+     */
+    async getQueryDetails(queryId) {
+        return this.wrapResponse(this.request(`queries/${queryId}`, {
+            method: 'GET'
+        }));
+    }
+
+    /**
+     * Get query status (direct endpoint)
+     */
+    async getQueryStatusDirect(queryId) {
+        return this.wrapResponse(this.request(`queries/${queryId}/status`, {
+            method: 'GET'
+        }));
+    }
 }
 
 /**

@@ -167,6 +167,25 @@ app.include_router(
     tags=["agent"]
 )
 
+# Answer display route
+@app.get("/answer/{query_id}")
+async def answer_page(query_id: str):
+    """Serve answer display page with query ID"""
+    from fastapi.responses import FileResponse
+    import os
+    
+    # Check if answer.html exists
+    static_path = os.path.join("static", "answer.html")
+    if os.path.exists(static_path):
+        response = FileResponse(static_path)
+        # Add query_id to the response for JavaScript to pick up
+        response.headers["X-Query-ID"] = query_id
+        return response
+    else:
+        # Fallback to redirect to static file with query parameter
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url=f"/static/answer.html?query_id={query_id}")
+
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 

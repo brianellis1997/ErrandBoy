@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GroupChat - Answer with Citations</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#64748B',
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <style>
+        .citation-link {
+            @apply text-primary font-medium underline decoration-dotted cursor-pointer hover:bg-blue-50 px-1 py-0.5 rounded transition-colors;
+        }
+        .citation-popup {
+            @apply absolute bg-white border border-gray-200 rounded-lg shadow-lg p-4 max-w-md z-50 hidden;
+            animation: fadeIn 0.2s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .timeline-item {
+            @apply flex items-center space-x-4 p-3 rounded-lg transition-colors;
+        }
+        .timeline-item.completed {
+            @apply bg-green-50 border-l-4 border-green-400;
+        }
+        .timeline-item.current {
+            @apply bg-blue-50 border-l-4 border-blue-400;
+        }
+        .timeline-item.pending {
+            @apply bg-gray-50 border-l-4 border-gray-300;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Loading State -->
+    <div id="loadingState" class="flex justify-center items-center min-h-screen">
+        <div class="text-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p class="text-gray-600">Loading your answer...</p>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div id="mainContent" class="hidden container mx-auto px-4 py-8 max-w-4xl">
+        <!-- Header -->
+        <div class="mb-8">
+            <div class="flex justify-between items-start">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900 mb-2">GroupChat Answer</h1>
+                    <p class="text-gray-600">Expert-sourced answer with interactive citations</p>
+                </div>
+                <div class="flex space-x-2">
+                    <button id="shareBtn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-md transition-colors">
+                        Share
+                    </button>
+                    <button id="togglePanelBtn" class="bg-primary hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors">
+                        Behind the Scenes
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Answer Section -->
+        <div class="bg-white rounded-lg shadow-lg mb-6">
+            <div class="p-6 border-b border-gray-200">
+                <h2 class="text-xl font-semibold text-gray-900 mb-4">Answer</h2>
+                
+                <!-- Answer Content -->
+                <div id="answerContent" class="prose max-w-none text-gray-800 leading-relaxed mb-6">
+                    <!-- Answer text with citations will be inserted here -->
+                </div>
+
+                <!-- Answer Metadata -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 pt-4 border-t border-gray-100">
+                    <div class="text-center">
+                        <div id="confidenceScore" class="text-2xl font-bold text-green-600">--</div>
+                        <div class="text-sm text-gray-600">Confidence</div>
+                    </div>
+                    <div class="text-center">
+                        <div id="responseTime" class="text-2xl font-bold text-blue-600">--</div>
+                        <div class="text-sm text-gray-600">Response Time</div>
+                    </div>
+                    <div class="text-center">
+                        <div id="expertCount" class="text-2xl font-bold text-purple-600">--</div>
+                        <div class="text-sm text-gray-600">Experts</div>
+                    </div>
+                    <div class="text-center">
+                        <div id="totalCost" class="text-2xl font-bold text-orange-600">--</div>
+                        <div class="text-sm text-gray-600">Total Cost</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Citation Summary -->
+            <div class="p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-3">Citations Summary</h3>
+                <div id="citationSummary" class="flex flex-wrap gap-2">
+                    <!-- Citation badges will be inserted here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Behind the Scenes Panel -->
+        <div id="behindScenesPanel" class="hidden bg-white rounded-lg shadow-lg mb-6">
+            <div class="p-6">
+                <h2 class="text-xl font-semibold text-gray-900 mb-6">Behind the Scenes</h2>
+                
+                <!-- Process Timeline -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Process Timeline</h3>
+                    <div id="processTimeline" class="space-y-2">
+                        <!-- Timeline items will be inserted here -->
+                    </div>
+                </div>
+
+                <!-- Expert Contributions -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Expert Contributions</h3>
+                    <div id="expertContributions" class="space-y-4">
+                        <!-- Contribution cards will be inserted here -->
+                    </div>
+                </div>
+
+                <!-- Payment Distribution -->
+                <div>
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Payment Distribution</h3>
+                    <div id="paymentDistribution" class="bg-gray-50 rounded-lg p-4">
+                        <!-- Payment breakdown will be inserted here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Error State -->
+        <div id="errorState" class="hidden bg-red-50 border border-red-200 rounded-lg p-6">
+            <h2 class="text-lg font-semibold text-red-800 mb-2">Error Loading Answer</h2>
+            <p id="errorMessage" class="text-red-700 mb-4"></p>
+            <button onclick="window.location.reload()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md transition-colors">
+                Retry
+            </button>
+        </div>
+
+        <!-- Footer -->
+        <div class="text-center mt-8 text-sm text-gray-500">
+            <p>This answer was synthesized from expert contributions in the GroupChat network</p>
+            <p class="mt-1">
+                <a href="/static/index.html" class="text-primary hover:underline">Submit another query</a> |
+                <a href="/docs" class="text-primary hover:underline">API Documentation</a>
+            </p>
+        </div>
+    </div>
+
+    <!-- Citation Popup -->
+    <div id="citationPopup" class="citation-popup">
+        <div class="flex justify-between items-start mb-3">
+            <h4 class="font-semibold text-gray-900">Citation Details</h4>
+            <button id="closeCitationPopup" class="text-gray-400 hover:text-gray-600">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        
+        <div id="citationContent">
+            <div class="mb-3">
+                <div class="font-medium text-gray-900" id="contributorName">--</div>
+                <div class="text-sm text-gray-600" id="contributorExpertise">--</div>
+            </div>
+            
+            <div class="mb-3">
+                <div class="text-sm text-gray-600 mb-1">Original Response:</div>
+                <div class="text-sm text-gray-800 bg-gray-50 p-2 rounded italic" id="sourceExcerpt">--</div>
+            </div>
+            
+            <div class="flex justify-between text-xs text-gray-500">
+                <span>Confidence: <span id="citationConfidence">--</span>%</span>
+                <span>Response Time: <span id="citationResponseTime">--</span></span>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/answer.js"></script>
+</body>
+</html>
