@@ -80,46 +80,363 @@ ErrandBoy/
 └── docker-compose.yml # Local development services
 ```
 
+## Architecture
+
+GroupChat follows a microservices-inspired architecture with clear separation of concerns:
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   API Gateway   │    │  Agent Tools    │    │   Workflow      │
+│   (FastAPI)     │────│  (LangGraph)    │────│  Orchestration  │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         ▼                       ▼                       ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Core Services │    │  External APIs  │    │   Database      │
+│                 │    │                 │    │                 │
+│ • Contacts      │    │ • Twilio SMS    │    │ • PostgreSQL    │
+│ • Queries       │    │ • OpenAI        │    │ • pgvector      │
+│ • Synthesis     │    │ • Stripe        │    │ • Redis Cache   │
+│ • Matching      │    │ • Email         │    │                 │
+│ • Payments      │    │                 │    │                 │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
 ## API Endpoints
 
-### Health Checks
+### 🏥 Health & Status
 - `GET /health/` - Basic health check
 - `GET /health/ready` - Readiness check with database status
 - `GET /health/live` - Liveness probe
+- `GET /health/config` - Configuration validation
 
-### Contacts
+### 👥 Contact Management
 - `POST /api/v1/contacts` - Create a contact
+- `GET /api/v1/contacts` - List all contacts
+- `GET /api/v1/contacts/search` - Search contacts by expertise
 - `GET /api/v1/contacts/{id}` - Get contact details
 - `PUT /api/v1/contacts/{id}` - Update contact
 - `DELETE /api/v1/contacts/{id}` - Soft delete contact
+- `POST /api/v1/contacts/{id}/expertise` - Update expertise tags
 
-### Queries
+### ❓ Query Processing
 - `POST /api/v1/queries` - Submit a query
-- `GET /api/v1/queries/{id}` - Get query status
-- `GET /api/v1/queries/{id}/answer` - Get compiled answer with citations
+- `GET /api/v1/queries` - List queries
+- `GET /api/v1/queries/{id}` - Get query details
+- `GET /api/v1/queries/{id}/status` - Get detailed query status
+- `POST /api/v1/queries/{id}/route` - Route query to experts
+- `GET /api/v1/queries/{id}/matches` - Get expert matches
 - `GET /api/v1/queries/{id}/contributions` - Get all contributions
+- `GET /api/v1/queries/{id}/answer` - Get compiled answer with citations
+- `POST /api/v1/queries/{id}/synthesize` - Trigger answer synthesis
+- `GET /api/v1/queries/{id}/synthesis/status` - Get synthesis status
 - `POST /api/v1/queries/{id}/accept` - Accept answer and trigger payments
 
-### Webhooks
+### 🎯 Expert Matching
+- `POST /api/v1/matching/experts/{query_id}` - Find expert matches
+- `GET /api/v1/matching/stats/{query_id}` - Get matching statistics
+- `GET /api/v1/matching/test/similarity` - Test similarity scoring
+
+### 💰 Payments & Ledger
+- `GET /api/v1/ledger/balance/{account_type}/{account_id}` - Get account balance
+- `GET /api/v1/ledger/transactions` - Get transaction history
+- `GET /api/v1/ledger/transaction/{id}/validate` - Validate transaction balance
+- `POST /api/v1/ledger/process-payment` - Process query payment
+- `GET /api/v1/ledger/contact/{id}/earnings` - Get contact earnings
+- `GET /api/v1/ledger/stats/platform` - Get platform statistics
+
+### 🤖 Agent & Workflow
+- `POST /api/v1/agent/process-query` - **Full end-to-end query processing**
+- `POST /api/v1/agent/tools/save-contact` - Save contact profile
+- `PUT /api/v1/agent/tools/contacts/{id}/expertise` - Update expertise
+- `GET /api/v1/agent/tools/search-contacts` - Search contacts
+- `POST /api/v1/agent/tools/queries` - Create query
+- `GET /api/v1/agent/tools/queries/{id}/status` - Get query status
+- `POST /api/v1/agent/tools/queries/{id}/synthesize` - Synthesize answer
+- `POST /api/v1/agent/tools/queries/{id}/settle` - Settle query with payment
+
+### 🔗 Webhooks & Integrations
 - `POST /api/v1/webhooks/twilio` - Twilio SMS webhook
 - `POST /api/v1/webhooks/stripe` - Stripe payment webhook
 
+### 🛠️ Admin & Monitoring
+- `GET /api/v1/admin/stats` - System statistics
+- `GET /api/v1/admin/health` - Detailed health check
+
+## Usage Examples
+
+### Submit and Process a Complete Query
+
+```bash
+# 1. Submit query via agent (handles everything automatically)
+curl -X POST "http://localhost:8000/api/v1/agent/process-query" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_phone": "+1234567890",
+    "question_text": "What are the best practices for scaling PostgreSQL?",
+    "max_spend_cents": 500
+  }'
+
+# Response includes query_id, final_answer, experts_contacted, payment details
+```
+
+### Manual Query Processing (Step by Step)
+
+```bash
+# 1. Create query
+curl -X POST "http://localhost:8000/api/v1/queries" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_phone": "+1234567890", 
+    "question_text": "How do I optimize React performance?",
+    "max_spend_cents": 300
+  }'
+
+# 2. Route to experts
+curl -X POST "http://localhost:8000/api/v1/queries/{query_id}/route"
+
+# 3. Check status
+curl "http://localhost:8000/api/v1/queries/{query_id}/status"
+
+# 4. Get final answer (after experts respond)
+curl "http://localhost:8000/api/v1/queries/{query_id}/answer"
+```
+
+### Contact Management
+
+```bash
+# Create expert contact
+curl -X POST "http://localhost:8000/api/v1/contacts" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Dr. Jane Smith",
+    "phone_number": "+1987654321",
+    "email": "jane@university.edu",
+    "bio": "Database systems researcher with 10 years PostgreSQL experience",
+    "expertise_tags": ["postgresql", "databases", "performance"]
+  }'
+
+# Search for experts
+curl "http://localhost:8000/api/v1/contacts/search?q=postgresql&limit=5"
+```
+
+## Configuration
+
+### Required Environment Variables
+
+```bash
+# Database
+DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/groupchat
+
+# OpenAI (for embeddings and synthesis)
+OPENAI_API_KEY=sk-your-openai-api-key
+
+# Twilio (for SMS)
+TWILIO_ACCOUNT_SID=your-twilio-sid
+TWILIO_AUTH_TOKEN=your-twilio-token
+TWILIO_PHONE_NUMBER=+1234567890
+
+# Application
+APP_ENV=development
+APP_DEBUG=true
+APP_SECRET_KEY=your-secret-key
+
+# Features (optional)
+ENABLE_SMS=false
+ENABLE_PAYMENTS=false
+ENABLE_REAL_EMBEDDINGS=false
+```
+
+### Payment Configuration
+```bash
+# Micropayment splits (must sum to 1.0)
+CONTRIBUTOR_POOL_PERCENTAGE=0.7  # 70% to contributors
+PLATFORM_PERCENTAGE=0.2         # 20% to platform
+REFERRER_PERCENTAGE=0.1          # 10% to referrers
+
+# Default query price
+QUERY_PRICE_CENTS=0.5           # Half a cent per query
+```
+
 ## Testing
 
-Run the test suite:
+### Run All Tests
 ```bash
 poetry run pytest
 ```
 
-With coverage:
+### Run Specific Test Types
 ```bash
+# Unit tests only
+poetry run pytest -m "unit"
+
+# Integration tests only  
+poetry run pytest -m "integration"
+
+# With coverage report
 poetry run pytest --cov=groupchat --cov-report=html
+
+# Run tests with specific markers
+poetry run pytest -m "not slow" --tb=short
+```
+
+### Test Categories
+- **Unit**: Individual function testing
+- **Integration**: API endpoint testing
+- **E2E**: End-to-end workflow testing
+- **External**: Tests requiring external services
+
+## Troubleshooting
+
+### Common Issues
+
+#### Database Connection Issues
+```bash
+# Check PostgreSQL status
+pg_isready -h localhost -p 5432
+
+# Reset database
+poetry run alembic downgrade base
+poetry run alembic upgrade head
+
+# Check connection string
+echo $DATABASE_URL
+```
+
+#### Import/Module Issues
+```bash
+# Reinstall dependencies
+poetry install --no-cache
+
+# Check Python path
+python -c "import sys; print('\n'.join(sys.path))"
+
+# Verify installation
+poetry run python -c "from groupchat.main import app; print('✓ App imports successfully')"
+```
+
+#### Port Already in Use
+```bash
+# Find process using port 8000
+lsof -ti:8000
+
+# Kill process
+kill $(lsof -ti:8000)
+
+# Use different port
+poetry run uvicorn groupchat.main:app --port 8001
+```
+
+#### OpenAI API Issues
+```bash
+# Test API key
+curl -H "Authorization: Bearer $OPENAI_API_KEY" \
+  https://api.openai.com/v1/models | jq '.data[0].id'
+
+# Check rate limits in logs
+grep -i "rate limit" logs/app.log
+```
+
+### Development Commands
+
+```bash
+# Start with auto-reload
+poetry run uvicorn groupchat.main:app --reload
+
+# Run with specific log level
+poetry run uvicorn groupchat.main:app --log-level debug
+
+# Check configuration
+poetry run python -c "from groupchat.config import settings; print(settings.validate_configuration())"
+
+# Database shell
+poetry run python -c "
+from groupchat.db.database import AsyncSessionLocal
+import asyncio
+async def main():
+    async with AsyncSessionLocal() as session:
+        print('Database connection successful')
+asyncio.run(main())
+"
+```
+
+### Performance Tuning
+
+#### Database Optimization
+```sql
+-- Add indexes for common queries
+CREATE INDEX CONCURRENTLY idx_queries_created_status ON queries(created_at, status);
+CREATE INDEX CONCURRENTLY idx_contacts_expertise_gin ON contacts USING gin(expertise_embedding);
+
+-- Update statistics
+ANALYZE contacts;
+ANALYZE queries;
+```
+
+#### Caching Configuration
+```bash
+# Enable Redis caching
+REDIS_URL=redis://localhost:6379/0
+
+# Cache embeddings
+ENABLE_EMBEDDING_CACHE=true
+
+# Set cache TTL
+CACHE_TTL_SECONDS=3600
+```
+
+## Deployment
+
+### Docker Deployment
+```bash
+# Build image
+docker build -t groupchat-api .
+
+# Run with docker-compose
+docker-compose up -d
+
+# Health check
+curl http://localhost:8000/health/ready
+```
+
+### Production Configuration
+```bash
+# Set production environment
+APP_ENV=production
+APP_DEBUG=false
+
+# Use production database
+DATABASE_URL=postgresql+asyncpg://user:pass@prod-db:5432/groupchat
+
+# Configure logging
+LOG_LEVEL=INFO
+LOG_FORMAT=json
+
+# Enable all features
+ENABLE_SMS=true
+ENABLE_PAYMENTS=true
+ENABLE_REAL_EMBEDDINGS=true
 ```
 
 ## Contributing
 
 See [GitHub Issues](https://github.com/brianellis1997/ErrandBoy/issues) for current tasks and the MVP milestone.
 
+### Development Workflow
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/your-feature`
+3. Make your changes following the existing patterns
+4. Add tests for new functionality
+5. Run the test suite: `poetry run pytest`
+6. Submit a pull request
+
+### Code Style
+- Follow PEP 8 guidelines
+- Use type hints for all functions
+- Add docstrings for public APIs
+- Keep functions focused and small
+- Use meaningful variable names
+
 ## License
 
-MIT License - see LICENSE file for details  
+MIT License - see LICENSE file for details

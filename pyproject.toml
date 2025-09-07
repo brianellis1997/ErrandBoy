@@ -67,6 +67,32 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = "-ra -q --strict-markers"
+addopts = "-ra -q --strict-markers --tb=short"
 testpaths = ["tests"]
 pythonpath = ["."]
+asyncio_mode = "auto"
+markers = [
+    "unit: Unit tests for individual functions",
+    "integration: Integration tests for API endpoints",
+    "e2e: End-to-end workflow tests",
+    "slow: Tests that take longer to run",
+    "external: Tests requiring external services"
+]
+
+[tool.coverage.run]
+source = ["groupchat"]
+omit = [
+    "*/tests/*",
+    "*/migrations/*",
+    "*/venv/*",
+    "*/__pycache__/*"
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:"
+]

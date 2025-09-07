@@ -117,6 +117,9 @@ class SynthesisService:
             # Update query status to COMPLETED
             await self._update_query_status(query_id, QueryStatus.COMPLETED)
 
+            # Process micropayment after successful synthesis
+            await self._process_micropayment(query_id, compiled_answer.id)
+
             # Refresh and return the compiled answer with citations
             await self.db.refresh(compiled_answer)
             return compiled_answer
@@ -539,3 +542,39 @@ but concise."""
             "synthesis_method": None,
             "tokens_used": 0
         }
+
+    async def _process_micropayment(
+        self,
+        query_id: uuid.UUID,
+        compiled_answer_id: uuid.UUID
+    ) -> None:
+        """Process micropayment for completed synthesis"""
+        
+        try:
+            # Import here to avoid circular imports
+            from groupchat.services.ledger import LedgerService
+            
+            ledger_service = LedgerService(self.db)
+            result = await ledger_service.process_query_payment(
+                query_id=query_id,
+                compiled_answer_id=compiled_answer_id
+            )
+            
+            if result["success"]:
+                logger.info(
+                    f"Processed micropayment for query {query_id}: "
+                    f"${result['total_amount_cents']/100:.4f} split among "
+                    f"{result['contributors_paid']} contributors"
+                )
+            else:
+                logger.warning(
+                    f"Micropayment processing failed for query {query_id}: "
+                    f"{result.get('message', 'Unknown error')}"
+                )
+                
+        except Exception as e:
+            # Log error but don't fail synthesis - payments can be processed later
+            logger.error(
+                f"Error processing micropayment for query {query_id}: {e}",
+                exc_info=True
+            )
