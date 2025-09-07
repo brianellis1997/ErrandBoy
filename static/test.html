@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frontend Test</title>
+    <script src="/static/js/api.js"></script>
+</head>
+<body>
+    <h1>Frontend API Test</h1>
+    <button onclick="testAPI()">Test API Connection</button>
+    <div id="result"></div>
+
+    <script>
+        async function testAPI() {
+            const resultDiv = document.getElementById('result');
+            
+            try {
+                const client = new APIClient();
+                const health = await client.healthCheck();
+                resultDiv.innerHTML = `<p style="color: green">✅ API Working: ${JSON.stringify(health)}</p>`;
+            } catch (error) {
+                resultDiv.innerHTML = `<p style="color: red">❌ API Error: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

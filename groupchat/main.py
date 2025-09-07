@@ -7,6 +7,7 @@ from typing import Any
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from groupchat.api import admin, agent, contacts, health, ledger, matching, queries, webhooks
 from groupchat.config import settings
@@ -115,7 +116,7 @@ app.add_middleware(
 app.add_middleware(RequestIDMiddleware)
 
 
-# Root endpoint
+# Root endpoint - redirect to frontend
 @app.get("/", response_class=JSONResponse)
 async def root() -> dict[str, Any]:
     """Root endpoint"""
@@ -123,6 +124,7 @@ async def root() -> dict[str, Any]:
         "name": "GroupChat API",
         "version": "0.1.0",
         "status": "operational",
+        "frontend": "/static/index.html",
         "docs": "/docs" if settings.app_debug else None,
     }
 
@@ -164,6 +166,9 @@ app.include_router(
     prefix="/api/v1/agent",
     tags=["agent"]
 )
+
+# Mount static files
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 # Global exception handler

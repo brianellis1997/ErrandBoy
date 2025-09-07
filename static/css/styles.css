@@ -1,0 +1,174 @@
+/* Custom styles for GroupChat Query Submission Interface */
+
+/* Slider Styling */
+.slider {
+    background: linear-gradient(to right, #e5e7eb 0%, #e5e7eb 100%);
+}
+
+.slider::-webkit-slider-thumb {
+    appearance: none;
+    height: 20px;
+    width: 20px;
+    border-radius: 50%;
+    background: #3b82f6;
+    cursor: pointer;
+    border: 2px solid white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+}
+
+.slider::-webkit-slider-thumb:hover {
+    background: #2563eb;
+    transform: scale(1.1);
+}
+
+.slider::-moz-range-thumb {
+    height: 20px;
+    width: 20px;
+    border-radius: 50%;
+    background: #3b82f6;
+    cursor: pointer;
+    border: 2px solid white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+}
+
+.slider::-moz-range-thumb:hover {
+    background: #2563eb;
+    transform: scale(1.1);
+}
+
+/* Progress Bar Animation */
+#progressBar {
+    background: linear-gradient(90deg, #3b82f6, #1d4ed8);
+    transition: width 0.5s ease-out;
+}
+
+/* Form Focus Styles */
+input:focus,
+textarea:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Loading Animation for Spinner */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.animate-spin {
+    animation: spin 1s linear infinite;
+}
+
+/* Smooth Transitions */
+.transition-all {
+    transition: all 0.2s ease;
+}
+
+/* Custom Shadow for Cards */
+.shadow-lg {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* Responsive Design Adjustments */
+@media (max-width: 640px) {
+    .container {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+    
+    .bg-white {
+        margin-left: -0.5rem;
+        margin-right: -0.5rem;
+        border-radius: 0.5rem;
+    }
+}
+
+/* Status Message Animations */
+#statusMessage {
+    transition: all 0.3s ease;
+}
+
+/* Button Hover Effects */
+button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Error State Styling */
+.text-red-600 {
+    font-weight: 500;
+}
+
+/* Success State Styling */
+.text-green-700 {
+    font-weight: 600;
+}
+
+/* Character Counter Animation */
+#charCount {
+    transition: color 0.2s ease;
+}
+
+/* Form Section Transitions */
+#progressSection,
+#resultsSection,
+#errorSection {
+    transition: opacity 0.3s ease;
+}
+
+/* Query Details Card */
+#queryDetails .bg-blue-50 {
+    border: 1px solid #dbeafe;
+}
+
+/* Custom Scrollbar for Textarea */
+textarea::-webkit-scrollbar {
+    width: 6px;
+}
+
+textarea::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 3px;
+}
+
+textarea::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+}
+
+textarea::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* Enhanced Focus Indicators */
+button:focus,
+input:focus,
+textarea:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+/* Loading State Opacity */
+form[style*="opacity: 0.5"] input,
+form[style*="opacity: 0.5"] textarea,
+form[style*="opacity: 0.5"] button:not(#submitBtn) {
+    pointer-events: none;
+}
+
+/* Status Icon Animations */
+.status-icon {
+    display: inline-block;
+    margin-right: 0.5rem;
+}
+
+/* Pulse Animation for Active States */
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+.animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
