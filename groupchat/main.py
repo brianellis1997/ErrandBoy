@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from groupchat.api import admin, agent, contacts, health, ledger, matching, queries, webhooks
+from groupchat.api import admin, agent, contacts, health, ledger, matching, queries, webhooks, websockets
 from groupchat.config import settings
 from groupchat.db.database import close_db, init_db
 from groupchat.middleware.request_id import RequestIDMiddleware
@@ -166,6 +166,11 @@ app.include_router(
     prefix="/api/v1/agent",
     tags=["agent"]
 )
+app.include_router(
+    websockets.router,
+    prefix="/api/v1/ws",
+    tags=["websockets"]
+)
 
 # Answer display route
 @app.get("/answer/{query_id}")
@@ -202,6 +207,23 @@ async def expert_interface():
         # Fallback to redirect to static file
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/static/expert.html")
+
+
+# Admin dashboard route
+@app.get("/admin")
+async def admin_dashboard():
+    """Serve admin dashboard interface"""
+    from fastapi.responses import FileResponse
+    import os
+    
+    # Check if admin.html exists
+    static_path = os.path.join("static", "admin.html")
+    if os.path.exists(static_path):
+        return FileResponse(static_path)
+    else:
+        # Fallback to redirect to static file
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/static/admin.html")
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")

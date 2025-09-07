@@ -213,3 +213,110 @@ async def admin_health_check(db: AsyncSession = Depends(get_db)) -> Dict[str, An
             "overall_status": "unhealthy",
             "error": str(e),
         }
+
+
+@router.get("/queries")
+async def get_admin_queries(
+    limit: int = 50,
+    offset: int = 0,
+    status_filter: str | None = None,
+    db: AsyncSession = Depends(get_db)
+) -> Dict[str, Any]:
+    """Get queries for admin dashboard with detailed information"""
+    try:
+        from sqlalchemy import select, desc
+        
+        # Build query with filters
+        query = select(Query).order_by(desc(Query.created_at))
+        
+        if status_filter:
+            query = query.where(Query.status == status_filter)
+            
+        query = query.limit(limit).offset(offset)
+        
+        result = await db.execute(query)
+        queries = result.scalars().all()
+        
+        # Format queries for dashboard
+        formatted_queries = []
+        for query_obj in queries:
+            formatted_queries.append({
+                "id": str(query_obj.id),
+                "question_text": query_obj.question_text,
+                "status": query_obj.status.value if query_obj.status else "unknown",
+                "created_at": query_obj.created_at.isoformat() if query_obj.created_at else None,
+                "max_spend_cents": query_obj.total_cost_cents,
+                "user_phone": query_obj.user_phone,
+                "expert_count": len(query_obj.matches) if hasattr(query_obj, 'matches') else 0,
+                "response_count": len(query_obj.responses) if hasattr(query_obj, 'responses') else 0,
+            })
+        
+        return {
+            "success": True,
+            "data": {
+                "queries": formatted_queries,
+                "total_count": len(formatted_queries),
+                "limit": limit,
+                "offset": offset,
+                "status_filter": status_filter
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Error fetching admin queries: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch queries",
+        )
+
+
+@router.get("/contacts/summary") 
+async def get_contacts_summary(db: AsyncSession = Depends(get_db)) -> Dict[str, Any]:
+    """Get contact/expert summary for admin dashboard"""
+    try:
+        from sqlalchemy import select, func
+        
+        # Get top experts by activity (mock implementation for now)
+        contacts_result = await db.execute(
+            select(Contact).where(
+                Contact.deleted_at.is_(None),
+                Contact.is_available == True
+            ).limit(10)
+        )
+        contacts = contacts_result.scalars().all()
+        
+        # Format contacts for dashboard
+        formatted_contacts = []
+        for contact in contacts:
+            formatted_contacts.append({
+                "id": str(contact.id),
+                "name": contact.name,
+                "phone": contact.phone_number,
+                "expertise_areas": (contact.expertise_summary or "General").split(", ") if contact.expertise_summary else ["General"],
+                "trust_score": contact.trust_score or 85,  # Default score
+                "response_rate": 90,  # Mock data
+                "avg_response_time": "2.5h",  # Mock data  
+                "total_earnings": 1250,  # Mock data
+                "queries_answered": 12,  # Mock data
+                "created_at": contact.created_at.isoformat() if contact.created_at else None
+            })
+        
+        return {
+            "success": True,
+            "data": {
+                "experts": formatted_contacts,
+                "total_experts": len(formatted_contacts),
+                "metrics": {
+                    "avg_trust_score": 87,  # Mock
+                    "avg_response_rate": 89,  # Mock
+                    "total_earnings": sum(e["total_earnings"] for e in formatted_contacts)
+                }
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Error fetching contacts summary: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch contacts summary",
+        )
