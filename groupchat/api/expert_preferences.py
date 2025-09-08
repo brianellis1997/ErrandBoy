@@ -327,10 +327,16 @@ async def get_expert_queue(
         
         if expert_contribution:
             # Handle timezone-aware datetime comparison
-            now = datetime.utcnow().replace(tzinfo=expert_contribution.requested_at.tzinfo) if expert_contribution.requested_at.tzinfo else datetime.utcnow()
-            requested_at = expert_contribution.requested_at.replace(tzinfo=None) if expert_contribution.requested_at.tzinfo else expert_contribution.requested_at
+            from datetime import timezone
+            now_utc = datetime.now(timezone.utc)
+            requested_at = expert_contribution.requested_at
+            
+            # Ensure both datetimes are timezone-aware
+            if requested_at.tzinfo is None:
+                requested_at = requested_at.replace(tzinfo=timezone.utc)
+            
             time_remaining = max(0, query_obj.timeout_minutes - 
-                               (datetime.utcnow() - requested_at).total_seconds() / 60)
+                               (now_utc - requested_at).total_seconds() / 60)
             
             queue_items.append(ExpertQueueItem(
                 query_id=query_obj.id,
@@ -401,13 +407,12 @@ async def create_response_draft(
     
     if query_obj:
         # Check if expert has a contribution for this query
+        from groupchat.db.models import Contribution
         contrib_result = await db.execute(
-            select(QueryModel)
-            .join(QueryModel.contributions)
-            .where(
+            select(Contribution).where(
                 and_(
-                    QueryModel.id == draft_data.query_id,
-                    QueryModel.contributions.any(contact_id=contact_id)
+                    Contribution.query_id == draft_data.query_id,
+                    Contribution.contact_id == contact_id
                 )
             )
         )
