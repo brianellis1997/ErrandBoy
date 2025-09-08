@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     # Stripe
     stripe_secret_key: str | None = Field(default=None)
     stripe_webhook_secret: str | None = Field(default=None)
+    
+    # Plaid
+    plaid_client_id: str | None = Field(default=None)
+    plaid_secret: str | None = Field(default=None)
 
     # Application
     app_env: str = Field(default="development")

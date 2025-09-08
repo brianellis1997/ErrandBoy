@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from groupchat.api import admin, agent, contacts, demo, health, ledger, matching, queries, webhooks, websockets
+from groupchat.api import admin, agent, contacts, demo, health, ledger, matching, payments, queries, webhooks, websockets
 from groupchat.config import settings
 from groupchat.db.database import close_db, init_db
 from groupchat.middleware.request_id import RequestIDMiddleware
@@ -160,6 +160,11 @@ app.include_router(
     ledger.router,
     prefix="/api/v1/ledger",
     tags=["ledger"]
+)
+app.include_router(
+    payments.router,
+    prefix="/api/v1/payments",
+    tags=["payments"]
 )
 app.include_router(
     agent.router,

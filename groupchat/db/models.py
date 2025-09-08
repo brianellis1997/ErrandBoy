@@ -134,6 +134,7 @@ class Contact(Base, TimestampMixin, SoftDeleteMixin):
     expertise_tags = relationship("ExpertiseTag", secondary="contact_expertise", back_populates="contacts")
     contributions = relationship("Contribution", back_populates="contact")
     api_credentials = relationship("APICredential", back_populates="contact")
+    stripe_account = relationship("StripeConnectedAccount", back_populates="contact", uselist=False)
     referrals = relationship("Contact",
                            secondary="referrals",
                            primaryjoin="Contact.id==referrals.c.referrer_id",
@@ -541,4 +542,184 @@ class Referral(Base):
     __table_args__ = (
         Index("idx_referral_referrer", "referrer_id"),
         Index("idx_referral_referred", "referred_id"),
+    )
+
+
+class PaymentAccountStatus(enum.Enum):
+    """Payment account status enumeration"""
+    PENDING = "pending"
+    CONNECTED = "connected" 
+    EXPIRED = "expired"
+    ERROR = "error"
+
+
+class PaymentMethodType(enum.Enum):
+    """Payment method types"""
+    BANK_ACCOUNT = "bank_account"
+    DEBIT_CARD = "debit_card"
+    CREDIT_CARD = "credit_card"
+
+
+class PaymentIntentStatus(enum.Enum):
+    """Payment intent status"""
+    PENDING = "pending"
+    PROCESSING = "processing"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class UserPaymentAccount(Base, TimestampMixin, SoftDeleteMixin):
+    """User bank accounts and payment methods linked via Plaid"""
+    __tablename__ = "user_payment_accounts"
+    
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4
+    )
+    
+    # User identification (using phone as in existing system)
+    user_phone: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    
+    # Plaid integration
+    plaid_access_token: Mapped[str] = mapped_column(String(255), nullable=False)
+    plaid_item_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    plaid_account_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    
+    # Account details
+    account_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    account_type: Mapped[str] = mapped_column(String(50), nullable=False)  # checking, savings, etc.
+    account_subtype: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    account_mask: Mapped[str] = mapped_column(String(10), nullable=False)  # Last 4 digits
+    
+    # Institution information
+    institution_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    institution_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    
+    # Status and verification
+    status: Mapped[PaymentAccountStatus] = mapped_column(
+        SQLEnum(PaymentAccountStatus),
+        default=PaymentAccountStatus.PENDING,
+        nullable=False
+    )
+    is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    
+    # Payment capabilities
+    can_deposit: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    can_withdraw: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_primary: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    
+    # Metadata and configuration
+    extra_metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
+    
+    __table_args__ = (
+        Index("idx_payment_account_user", "user_phone"),
+        Index("idx_payment_account_plaid_item", "plaid_item_id"),
+        Index("idx_payment_account_status", "status"),
+        UniqueConstraint("plaid_account_id", name="uq_plaid_account"),
+    )
+
+
+class StripeConnectedAccount(Base, TimestampMixin):
+    """Expert Stripe Connect accounts for receiving payouts"""
+    __tablename__ = "stripe_connected_accounts"
+    
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4
+    )
+    
+    contact_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("contacts.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True
+    )
+    
+    # Stripe Connect integration
+    stripe_account_id: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    stripe_account_type: Mapped[str] = mapped_column(String(50), default="express", nullable=False)
+    
+    # Account status and capabilities
+    charges_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    payouts_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    details_submitted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    
+    # Onboarding
+    onboarding_completed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    onboarding_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    onboarding_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    
+    # Requirements and restrictions
+    requirements_currently_due: Mapped[list[str]] = mapped_column(JSONB, default=list, nullable=False)
+    requirements_eventually_due: Mapped[list[str]] = mapped_column(JSONB, default=list, nullable=False)
+    requirements_disabled_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    
+    # Metadata
+    extra_metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
+    
+    # Relationships
+    contact = relationship("Contact", back_populates="stripe_account")
+    
+    __table_args__ = (
+        Index("idx_stripe_account_contact", "contact_id"),
+        Index("idx_stripe_account_stripe_id", "stripe_account_id"),
+        Index("idx_stripe_account_enabled", "payouts_enabled"),
+    )
+
+
+class PaymentIntent(Base, TimestampMixin):
+    """Track deposit and withdrawal intents"""
+    __tablename__ = "payment_intents"
+    
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4
+    )
+    
+    # User and amount
+    user_phone: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    amount_cents: Mapped[int] = mapped_column(Integer, nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), default="USD", nullable=False)
+    
+    # Intent type and direction
+    intent_type: Mapped[str] = mapped_column(String(20), nullable=False)  # deposit, withdrawal
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    
+    # Status tracking
+    status: Mapped[PaymentIntentStatus] = mapped_column(
+        SQLEnum(PaymentIntentStatus),
+        default=PaymentIntentStatus.PENDING,
+        nullable=False
+    )
+    
+    # External references
+    payment_account_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("user_payment_accounts.id", ondelete="CASCADE"),
+        nullable=False
+    )
+    stripe_payment_intent_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    plaid_transfer_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    ledger_transaction_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    
+    # Processing details
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    failure_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    
+    # Metadata
+    extra_metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
+    
+    # Relationships
+    payment_account = relationship("UserPaymentAccount")
+    
+    __table_args__ = (
+        Index("idx_payment_intent_user", "user_phone"),
+        Index("idx_payment_intent_status", "status"),
+        Index("idx_payment_intent_type", "intent_type"),
+        Index("idx_payment_intent_account", "payment_account_id"),
     )
