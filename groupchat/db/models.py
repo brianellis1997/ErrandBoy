@@ -723,3 +723,223 @@ class PaymentIntent(Base, TimestampMixin):
         Index("idx_payment_intent_type", "intent_type"),
         Index("idx_payment_intent_account", "payment_account_id"),
     )
+
+
+class NotificationUrgency(enum.Enum):
+    """Notification urgency levels"""
+    LOW = "low"
+    NORMAL = "normal"
+    HIGH = "high"
+    URGENT = "urgent"
+
+
+class NotificationSchedule(enum.Enum):
+    """Notification delivery schedules"""
+    IMMEDIATE = "immediate"
+    BATCHED_HOURLY = "batched_hourly"
+    BATCHED_DAILY = "batched_daily"
+    BUSINESS_HOURS = "business_hours"
+
+
+class ExpertNotificationPreferences(Base, TimestampMixin):
+    """Expert notification preferences and settings"""
+    __tablename__ = "expert_notification_preferences"
+    
+    contact_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("contacts.id", ondelete="CASCADE"),
+        primary_key=True
+    )
+    
+    # Notification channels
+    sms_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    email_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    push_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    
+    # Scheduling preferences
+    notification_schedule: Mapped[NotificationSchedule] = mapped_column(
+        SQLEnum(NotificationSchedule),
+        default=NotificationSchedule.IMMEDIATE,
+        nullable=False
+    )
+    
+    # Filtering preferences
+    urgency_filter: Mapped[NotificationUrgency] = mapped_column(
+        SQLEnum(NotificationUrgency),
+        default=NotificationUrgency.LOW,
+        nullable=False
+    )
+    
+    # Business hours configuration (JSON format: {"start": "09:00", "end": "17:00", "timezone": "UTC"})
+    business_hours: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, 
+        default=lambda: {"start": "09:00", "end": "17:00", "timezone": "UTC"},
+        nullable=False
+    )
+    
+    # Quiet hours configuration
+    quiet_hours_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    quiet_hours_start: Mapped[str] = mapped_column(String(5), default="22:00", nullable=False)
+    quiet_hours_end: Mapped[str] = mapped_column(String(5), default="08:00", nullable=False)
+    
+    # Rate limiting
+    max_notifications_per_hour: Mapped[int] = mapped_column(Integer, default=5, nullable=False)
+    max_notifications_per_day: Mapped[int] = mapped_column(Integer, default=20, nullable=False)
+    
+    # Topic/expertise filtering
+    expertise_matching_threshold: Mapped[float] = mapped_column(Float, default=0.3, nullable=False)
+    auto_decline_low_match: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    
+    # Relationships
+    contact = relationship("Contact")
+    
+    __table_args__ = (
+        Index("idx_notification_prefs_contact", "contact_id"),
+        CheckConstraint("max_notifications_per_hour > 0", name="check_hourly_limit"),
+        CheckConstraint("max_notifications_per_day > 0", name="check_daily_limit"),
+    )
+
+
+class ResponseDraft(Base, TimestampMixin):
+    """Draft responses for experts to save work in progress"""
+    __tablename__ = "response_drafts"
+    
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4
+    )
+    
+    # Links to contribution (may not exist yet)
+    contribution_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("contributions.id", ondelete="CASCADE"),
+        nullable=True
+    )
+    
+    # Alternative linking via query and contact
+    query_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("queries.id", ondelete="CASCADE"),
+        nullable=False
+    )
+    contact_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("contacts.id", ondelete="CASCADE"),
+        nullable=False
+    )
+    
+    # Draft content
+    draft_content: Mapped[str] = mapped_column(Text, nullable=False)
+    confidence_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    
+    # Metadata for rich editor support
+    content_format: Mapped[str] = mapped_column(String(20), default="plaintext", nullable=False)  # plaintext, html, markdown
+    attachments: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list, nullable=False)
+    
+    # Auto-save tracking
+    auto_save_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    is_final: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    
+    # Relationships
+    contribution = relationship("Contribution")
+    query = relationship("Query")
+    contact = relationship("Contact")
+    
+    __table_args__ = (
+        Index("idx_draft_query", "query_id"),
+        Index("idx_draft_contact", "contact_id"),
+        Index("idx_draft_contribution", "contribution_id"),
+        UniqueConstraint("query_id", "contact_id", name="uq_draft_query_contact"),
+    )
+
+
+class ResponseQualityReview(Base, TimestampMixin):
+    """Peer reviews and quality assessments for expert responses"""
+    __tablename__ = "response_quality_reviews"
+    
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4
+    )
+    
+    contribution_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("contributions.id", ondelete="CASCADE"),
+        nullable=False
+    )
+    reviewer_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("contacts.id", ondelete="SET NULL"),
+        nullable=True
+    )
+    
+    # Quality assessment
+    quality_score: Mapped[float] = mapped_column(
+        Float, 
+        CheckConstraint("quality_score >= 0 AND quality_score <= 5"),
+        nullable=False
+    )
+    accuracy_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    helpfulness_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    clarity_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    
+    # Review details
+    review_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    recommended_improvements: Mapped[str | None] = mapped_column(Text, nullable=True)
+    
+    # Review context
+    is_automated_review: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    review_weight: Mapped[float] = mapped_column(Float, default=1.0, nullable=False)
+    
+    # Relationships
+    contribution = relationship("Contribution")
+    reviewer = relationship("Contact", foreign_keys=[reviewer_id])
+    
+    __table_args__ = (
+        Index("idx_quality_review_contribution", "contribution_id"),
+        Index("idx_quality_review_reviewer", "reviewer_id"),
+        Index("idx_quality_review_score", "quality_score"),
+        UniqueConstraint("contribution_id", "reviewer_id", name="uq_review_contribution_reviewer"),
+    )
+
+
+class ExpertAvailabilitySchedule(Base, TimestampMixin):
+    """Expert availability schedules and temporary unavailability"""
+    __tablename__ = "expert_availability_schedules"
+    
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4
+    )
+    
+    contact_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("contacts.id", ondelete="CASCADE"),
+        nullable=False
+    )
+    
+    # Schedule configuration (JSON format with weekly schedule)
+    weekly_schedule: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    
+    # Temporary overrides
+    temporary_unavailable_start: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    temporary_unavailable_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    unavailable_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    
+    # Vacation/long-term unavailability
+    vacation_mode_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    vacation_start: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    vacation_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    vacation_auto_response: Mapped[str | None] = mapped_column(Text, nullable=True)
+    
+    # Relationships
+    contact = relationship("Contact")
+    
+    __table_args__ = (
+        Index("idx_availability_contact", "contact_id"),
+        Index("idx_availability_vacation", "vacation_mode_enabled"),
+        UniqueConstraint("contact_id", name="uq_availability_contact"),
+    )

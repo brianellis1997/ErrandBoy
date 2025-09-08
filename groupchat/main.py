@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from groupchat.api import admin, agent, contacts, demo, health, ledger, matching, payments, queries, webhooks, websockets
+from groupchat.api import admin, agent, contacts, demo, expert_preferences, health, ledger, matching, payments, queries, webhooks, websockets
 from groupchat.config import settings
 from groupchat.db.database import close_db, init_db
 from groupchat.middleware.request_id import RequestIDMiddleware
@@ -181,6 +181,10 @@ app.include_router(
     prefix="/api/v1/demo",
     tags=["demo"]
 )
+app.include_router(
+    expert_preferences.router,
+    tags=["expert-preferences"]
+)
 
 # Answer display route
 @app.get("/answer/{query_id}")
@@ -217,6 +221,23 @@ async def expert_interface():
         # Fallback to redirect to static file
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/static/expert.html")
+
+
+# Enhanced expert interface route
+@app.get("/expert/enhanced")
+async def enhanced_expert_interface():
+    """Serve enhanced expert response interface with real-time notifications"""
+    from fastapi.responses import FileResponse
+    import os
+    
+    # Serve the enhanced expert interface
+    static_path = os.path.join("static", "expert-enhanced.html")
+    if os.path.exists(static_path):
+        return FileResponse(static_path)
+    else:
+        # Fallback to redirect to static file
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/static/expert-enhanced.html")
 
 
 # Admin dashboard route

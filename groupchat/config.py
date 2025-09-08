@@ -39,6 +39,16 @@ class Settings(BaseSettings):
     plaid_client_id: str | None = Field(default=None)
     plaid_secret: str | None = Field(default=None)
 
+    # Email/SMTP Configuration
+    smtp_server: str | None = Field(default=None)
+    smtp_port: int = Field(default=587)
+    smtp_username: str | None = Field(default=None)
+    smtp_password: str | None = Field(default=None)
+    from_email: str | None = Field(default=None)
+    
+    # Base URL for links in emails/SMS
+    app_base_url: str = Field(default="http://localhost:8000")
+
     # Application
     app_env: str = Field(default="development")
     app_debug: bool = Field(default=True)
@@ -58,6 +68,7 @@ class Settings(BaseSettings):
     enable_sms: bool = Field(default=False)
     enable_payments: bool = Field(default=False)
     enable_real_embeddings: bool = Field(default=False)
+    enable_email_notifications: bool = Field(default=False)
 
     # Logging
     log_level: str = Field(default="INFO")
@@ -99,6 +110,15 @@ class Settings(BaseSettings):
             self.enable_payments,
             self.stripe_secret_key,
             self.stripe_webhook_secret
+        ])
+
+    def is_email_configured(self) -> bool:
+        """Check if email/SMTP is properly configured"""
+        return all([
+            self.enable_email_notifications,
+            self.smtp_server,
+            self.smtp_username,
+            self.smtp_password
         ])
 
     def validate_configuration(self) -> dict[str, list[str]]:

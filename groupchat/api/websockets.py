@@ -175,6 +175,207 @@ async def notify_system_event(message: str, level: str = "info"):
     await admin_manager.send_activity_update("System", message, level)
 
 
+# Expert-specific connection manager
+class ExpertConnectionManager:
+    """Manages WebSocket connections for individual experts"""
+    
+    def __init__(self):
+        # Dictionary mapping contact_id to list of WebSocket connections
+        self.expert_connections: dict[str, List[WebSocket]] = {}
+    
+    async def connect_expert(self, websocket: WebSocket, contact_id: str):
+        """Connect an expert WebSocket"""
+        await websocket.accept()
+        
+        if contact_id not in self.expert_connections:
+            self.expert_connections[contact_id] = []
+        
+        self.expert_connections[contact_id].append(websocket)
+        logger.info(f"Expert {contact_id} connected. Total connections: {len(self.expert_connections[contact_id])}")
+    
+    def disconnect_expert(self, websocket: WebSocket, contact_id: str):
+        """Disconnect an expert WebSocket"""
+        if contact_id in self.expert_connections and websocket in self.expert_connections[contact_id]:
+            self.expert_connections[contact_id].remove(websocket)
+            
+            # Clean up empty lists
+            if not self.expert_connections[contact_id]:
+                del self.expert_connections[contact_id]
+        
+        logger.info(f"Expert {contact_id} disconnected")
+    
+    async def send_to_expert(self, contact_id: str, message: dict):
+        """Send message to specific expert's connections"""
+        if contact_id not in self.expert_connections:
+            return
+        
+        message_json = json.dumps(message)
+        disconnected_connections = []
+        
+        for connection in self.expert_connections[contact_id]:
+            try:
+                if connection.client_state == WebSocketState.CONNECTED:
+                    await connection.send_text(message_json)
+                else:
+                    disconnected_connections.append(connection)
+            except Exception as e:
+                logger.error(f"Error sending to expert {contact_id}: {e}")
+                disconnected_connections.append(connection)
+        
+        # Clean up disconnected connections
+        for connection in disconnected_connections:
+            self.disconnect_expert(connection, contact_id)
+    
+    async def send_notification(self, contact_id: str, notification_type: str, data: dict):
+        """Send notification to expert"""
+        await self.send_to_expert(contact_id, {
+            "type": "notification",
+            "notification_type": notification_type,
+            "data": data,
+            "timestamp": "now"
+        })
+    
+    async def send_query_invitation(self, contact_id: str, query_data: dict):
+        """Send query invitation notification to expert"""
+        await self.send_notification(contact_id, "query_invitation", {
+            "query_id": query_data["query_id"],
+            "question": query_data["question"][:200] + "..." if len(query_data["question"]) > 200 else query_data["question"],
+            "urgency": query_data.get("urgency", "normal"),
+            "estimated_payout_cents": query_data.get("estimated_payout_cents", 0),
+            "timeout_minutes": query_data.get("timeout_minutes", 30),
+            "user_phone": query_data.get("user_phone", "Anonymous")
+        })
+    
+    async def send_status_update(self, contact_id: str, status_type: str, message: str):
+        """Send status update to expert"""
+        await self.send_notification(contact_id, "status_update", {
+            "status_type": status_type,
+            "message": message
+        })
+    
+    async def send_draft_auto_save(self, contact_id: str, draft_id: str, auto_save_count: int):
+        """Send draft auto-save confirmation"""
+        await self.send_notification(contact_id, "draft_saved", {
+            "draft_id": draft_id,
+            "auto_save_count": auto_save_count,
+            "message": f"Draft auto-saved ({auto_save_count} saves)"
+        })
+    
+    async def send_payment_notification(self, contact_id: str, amount_cents: int, query_id: str):
+        """Send payment notification to expert"""
+        amount_dollars = amount_cents / 100
+        await self.send_notification(contact_id, "payment_received", {
+            "query_id": query_id,
+            "amount_cents": amount_cents,
+            "amount_dollars": amount_dollars,
+            "message": f"Payment received: ${amount_dollars:.4f}"
+        })
+    
+    def get_connected_experts(self) -> List[str]:
+        """Get list of currently connected expert IDs"""
+        return list(self.expert_connections.keys())
+    
+    def is_expert_connected(self, contact_id: str) -> bool:
+        """Check if expert is currently connected"""
+        return contact_id in self.expert_connections and len(self.expert_connections[contact_id]) > 0
+
+
+# Global expert connection manager
+expert_manager = ExpertConnectionManager()
+
+
+@router.websocket("/expert/{contact_id}")
+async def expert_websocket_endpoint(websocket: WebSocket, contact_id: str):
+    """WebSocket endpoint for individual expert real-time updates"""
+    await expert_manager.connect_expert(websocket, contact_id)
+    
+    try:
+        # Send initial connection message
+        await websocket.send_text(json.dumps({
+            "type": "connection",
+            "data": {
+                "status": "connected",
+                "contact_id": contact_id,
+                "message": f"Expert {contact_id} connected"
+            }
+        }))
+        
+        # Handle incoming messages
+        while True:
+            data = await websocket.receive_text()
+            try:
+                message = json.loads(data)
+                message_type = message.get("type")
+                
+                if message_type == "ping":
+                    await websocket.send_text(json.dumps({
+                        "type": "pong",
+                        "data": {"timestamp": message.get("timestamp")}
+                    }))
+                
+                elif message_type == "draft_auto_save":
+                    # Handle draft auto-save requests
+                    draft_data = message.get("data", {})
+                    # This could trigger actual draft saving logic
+                    await expert_manager.send_draft_auto_save(
+                        contact_id, 
+                        draft_data.get("draft_id", ""), 
+                        draft_data.get("auto_save_count", 0)
+                    )
+                
+                elif message_type == "availability_toggle":
+                    # Handle availability status changes
+                    available = message.get("data", {}).get("available", True)
+                    status_msg = "available" if available else "unavailable"
+                    await expert_manager.send_status_update(
+                        contact_id, 
+                        "availability", 
+                        f"Status changed to {status_msg}"
+                    )
+                
+                elif message_type == "request_queue_update":
+                    # Expert requesting updated queue information
+                    await expert_manager.send_notification(contact_id, "queue_refresh", {
+                        "message": "Queue data refreshed",
+                        "request_id": message.get("request_id")
+                    })
+                
+            except json.JSONDecodeError:
+                logger.warning(f"Invalid JSON received from expert {contact_id} WebSocket: {data}")
+                
+    except WebSocketDisconnect:
+        expert_manager.disconnect_expert(websocket, contact_id)
+    except Exception as e:
+        logger.error(f"Expert WebSocket error for {contact_id}: {e}")
+        expert_manager.disconnect_expert(websocket, contact_id)
+
+
+# Helper functions for expert notifications
+async def notify_expert_query_invitation(contact_id: str, query_data: dict):
+    """Notify specific expert of new query invitation"""
+    await expert_manager.send_query_invitation(contact_id, query_data)
+
+
+async def notify_expert_payment(contact_id: str, amount_cents: int, query_id: str):
+    """Notify expert of payment received"""
+    await expert_manager.send_payment_notification(contact_id, amount_cents, query_id)
+
+
+async def notify_expert_status_change(contact_id: str, status_type: str, message: str):
+    """Notify expert of status changes"""
+    await expert_manager.send_status_update(contact_id, status_type, message)
+
+
+async def is_expert_online(contact_id: str) -> bool:
+    """Check if expert is currently online"""
+    return expert_manager.is_expert_connected(contact_id)
+
+
+async def get_online_experts() -> List[str]:
+    """Get list of currently online experts"""
+    return expert_manager.get_connected_experts()
+
+
 # Demo-specific connection manager
 class DemoConnectionManager(ConnectionManager):
     """Manages WebSocket connections specifically for demo coordination"""
