@@ -116,15 +116,32 @@ app.add_middleware(
 app.add_middleware(RequestIDMiddleware)
 
 
-# Root endpoint - redirect to frontend
-@app.get("/", response_class=JSONResponse)
-async def root() -> dict[str, Any]:
-    """Root endpoint"""
+# Root endpoint - serve frontend
+@app.get("/")
+async def root():
+    """Root endpoint - serve main interface"""
+    from fastapi.responses import FileResponse
+    import os
+    
+    # Check if index.html exists
+    static_path = os.path.join("static", "index.html")
+    if os.path.exists(static_path):
+        return FileResponse(static_path)
+    else:
+        # Fallback to redirect to static file
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/static/index.html")
+
+
+# API status endpoint
+@app.get("/status", response_class=JSONResponse)
+async def api_status() -> dict[str, Any]:
+    """API status endpoint for programmatic access"""
     return {
         "name": "GroupChat API",
         "version": "0.1.0",
         "status": "operational",
-        "frontend": "/static/index.html",
+        "frontend": "/",
         "docs": "/docs" if settings.app_debug else None,
     }
 
