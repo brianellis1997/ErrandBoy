@@ -132,21 +132,22 @@ class AgentTools:
         try:
             logger.info(f"Searching contacts for query: {query}")
             
-            # Use the matching service to find relevant contacts
-            matches = await self.matching_service.find_expert_matches(
+            # Use the contact service to search for contacts
+            contacts, total = await self.contact_service.search_contacts(
                 query=query,
+                skip=0,
                 limit=limit
             )
             
             results = []
-            for contact, score in matches:
+            for contact in contacts:
                 results.append({
                     "contact_id": str(contact.id),
                     "name": contact.name,
                     "phone": contact.phone_number,
                     "expertise_summary": contact.expertise_summary,
                     "trust_score": contact.trust_score,
-                    "match_score": score
+                    "match_score": 0.8  # Default match score
                 })
             
             return ToolResult(
@@ -180,14 +181,16 @@ class AgentTools:
         try:
             logger.info(f"Creating query from {user_phone}: {question_text[:50]}...")
             
-            query_data = {
-                "user_phone": user_phone,
-                "question_text": question_text,
-                "max_spend_cents": max_spend_cents,
-                "max_experts": max_experts,
-                "min_experts": min_experts,
-                "timeout_minutes": 30
-            }
+            from groupchat.schemas.queries import QueryCreate
+            
+            query_data = QueryCreate(
+                user_phone=user_phone,
+                question_text=question_text,
+                max_spend_cents=max_spend_cents,
+                max_experts=max_experts,
+                min_experts=min_experts,
+                timeout_minutes=30
+            )
             
             query = await self.query_service.create_query(query_data)
             
