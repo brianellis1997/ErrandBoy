@@ -53,14 +53,29 @@ class AgentTools:
         try:
             logger.info(f"Creating contact profile for {name} ({phone})")
             
-            # Create contact data
-            contact_data = {
-                "name": name,
-                "phone_number": phone,
-                "bio": bio or f"{role}" if role else None,
-                "email": email,
-                "status": "active" if consent else "pending"
-            }
+            # Format phone number (ensure it starts with +)
+            formatted_phone = phone
+            if not phone.startswith('+'):
+                if phone.startswith('1') and len(phone) == 11:
+                    formatted_phone = '+' + phone
+                elif len(phone) == 10:
+                    formatted_phone = '+1' + phone
+                else:
+                    formatted_phone = '+' + phone
+            
+            # Create contact data using ContactCreate schema
+            from groupchat.schemas.contacts import ContactCreate
+            
+            contact_data = ContactCreate(
+                name=name,
+                phone_number=formatted_phone,
+                bio=bio or f"{role}" if role else None,
+                email=email,
+                is_available=True,
+                max_queries_per_day=3,  # Default from signup form
+                preferred_contact_method="sms",
+                extra_metadata={"signup_consent": consent, "professional_role": role}
+            )
             
             contact = await self.contact_service.create_contact(contact_data)
             
