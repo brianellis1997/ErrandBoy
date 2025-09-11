@@ -54,13 +54,12 @@ class APIClient {
      * Submit a new query
      */
     async submitQuery(userPhone, questionText, maxSpendCents, liveMode = false) {
-        return this.request('queries/', {
+        return this.request('agent/enhanced-process-query', {
             method: 'POST',
             body: JSON.stringify({
                 user_phone: userPhone,
                 question_text: questionText,
                 max_spend_cents: maxSpendCents,
-                timeout_minutes: 30,
                 live_mode: liveMode
             })
         });
@@ -70,7 +69,7 @@ class APIClient {
      * Get query status
      */
     async getQueryStatus(queryId) {
-        return this.request(`queries/${queryId}/status`, {
+        return this.request(`agent/tools/queries/${queryId}/status`, {
             method: 'GET'
         });
     }
