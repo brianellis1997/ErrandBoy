@@ -575,7 +575,7 @@ async def authenticate_expert(
             select(Contact).where(
                 and_(
                     Contact.phone_number == auth_request.phone_number,
-                    Contact.status == ContactStatus.ACTIVE
+                    Contact.status.in_([ContactStatus.ACTIVE, ContactStatus.PENDING])
                 )
             )
         )

@@ -46,7 +46,7 @@ class ContactService:
             is_available=contact_data.is_available,
             max_queries_per_day=contact_data.max_queries_per_day,
             preferred_contact_method=contact_data.preferred_contact_method,
-            status=ContactStatus.PENDING,
+            status=ContactStatus.ACTIVE,
             extra_metadata=contact_data.extra_metadata,
         )
 

@@ -177,7 +177,7 @@
                     this.hideAuthError();
                     
                     // Call the backend to authenticate and get expert profile
-                    const response = await this.apiClient.request('expert-preferences/authenticate', {
+                    const response = await this.apiClient.request('expert/authenticate', {
                         method: 'POST',
                         body: JSON.stringify({ phone_number: phone })
                     });
@@ -241,7 +241,7 @@
             async loadQuestions() {
                 try {
                     // Get questions for this expert
-                    const response = await this.apiClient.request(`expert-preferences/questions/${this.currentExpert.id}`, {
+                    const response = await this.apiClient.request(`expert/questions/${this.currentExpert.id}`, {
                         method: 'GET'
                     });
                     
@@ -352,7 +352,7 @@
                     }
                     
                     // Submit response
-                    const response = await this.apiClient.request('expert-preferences/respond', {
+                    const response = await this.apiClient.request('expert/respond', {
                         method: 'POST',
                         body: JSON.stringify({
                             question_id: questionId,
