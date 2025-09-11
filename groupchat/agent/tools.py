@@ -257,13 +257,13 @@ class AgentTools:
             query_uuid = uuid.UUID(query_id)
             
             # Route the query to experts
-            result = await self.query_service.route_query(query_uuid)
+            result = await self.query_service.route_query_to_experts(query_uuid, max_experts=limit)
             
             return ToolResult(
                 success=True,
                 data={
                     "query_id": query_id,
-                    "experts_matched": result.get("experts_contacted", 0),
+                    "experts_matched": result.get("experts_matched", 0),
                     "routing_result": result
                 },
                 tool_name="match_experts"
@@ -275,6 +275,104 @@ class AgentTools:
                 success=False,
                 error=str(e),
                 tool_name="match_experts"
+            )
+
+    async def send_query_to_experts(
+        self,
+        query_id: str,
+        enable_sms: bool = False
+    ) -> ToolResult:
+        """Send query notifications to matched experts via SMS (if enabled)"""
+        
+        try:
+            from groupchat.config import settings
+            
+            logger.info(f"Sending query {query_id} to experts (SMS enabled: {enable_sms and settings.enable_real_sms})")
+            
+            query_uuid = uuid.UUID(query_id)
+            
+            # Get the query and its matched experts
+            query = await self.query_service.get_query(query_uuid)
+            if not query:
+                return ToolResult(
+                    success=False,
+                    error="Query not found",
+                    tool_name="send_query_to_experts"
+                )
+            
+            # Check if SMS should be sent based on config and request
+            should_send_sms = enable_sms and settings.enable_real_sms
+            
+            if should_send_sms:
+                # Get matched experts from query metadata
+                from groupchat.services.matching import ExpertMatchingService
+                from groupchat.schemas.matching import MatchingRequest
+                
+                matching_service = ExpertMatchingService(self.db)
+                request = MatchingRequest(
+                    query_id=query_uuid,
+                    limit=query.max_experts,
+                    location_boost=True,
+                    exclude_recent=True,
+                    wave_size=3
+                )
+                
+                # Get expert matches
+                matching_result = await matching_service.match_experts(query, request)
+                matched_contacts = [match.contact for match in matching_result.matches]
+                
+                if matched_contacts:
+                    # Send SMS notifications to matched experts
+                    sms_result = await self.sms_service.send_query_to_experts(
+                        query=query,
+                        expert_contacts=matched_contacts,
+                        user_name="User"  # Could be enhanced to get actual user name
+                    )
+                    
+                    logger.info(f"SMS outreach completed: {len(sms_result['sent'])} sent, "
+                               f"{len(sms_result['failed'])} failed, {len(sms_result['skipped'])} skipped")
+                    
+                    return ToolResult(
+                        success=True,
+                        data={
+                            "query_id": query_id,
+                            "sms_enabled": True,
+                            "experts_contacted": len(matched_contacts),
+                            "sms_sent": len(sms_result['sent']),
+                            "sms_failed": len(sms_result['failed']),
+                            "sms_skipped": len(sms_result['skipped']),
+                            "sms_details": sms_result
+                        },
+                        tool_name="send_query_to_experts"
+                    )
+                else:
+                    return ToolResult(
+                        success=True,
+                        data={
+                            "query_id": query_id,
+                            "sms_enabled": True,
+                            "experts_contacted": 0,
+                            "message": "No experts found to contact"
+                        },
+                        tool_name="send_query_to_experts"
+                    )
+            else:
+                return ToolResult(
+                    success=True,
+                    data={
+                        "query_id": query_id,
+                        "sms_enabled": False,
+                        "message": "SMS notifications disabled - demo mode or SMS not configured"
+                    },
+                    tool_name="send_query_to_experts"
+                )
+            
+        except Exception as e:
+            logger.error(f"Error sending query to experts: {e}")
+            return ToolResult(
+                success=False,
+                error=str(e),
+                tool_name="send_query_to_experts"
             )
 
     async def send_sms(

@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     
     # Base URL for links in emails/SMS
     app_base_url: str = Field(default="http://localhost:8000")
+    
+    # Demo/Live mode settings
+    enable_real_sms: bool = Field(default=True)  # Set to True to enable real SMS notifications
 
     # Application
     app_env: str = Field(default="development")
@@ -65,7 +68,7 @@ class Settings(BaseSettings):
     jwt_expiration_hours: int = Field(default=24)
 
     # Feature Flags
-    enable_sms: bool = Field(default=False)
+    enable_sms: bool = Field(default=True)
     enable_payments: bool = Field(default=False)
     enable_real_embeddings: bool = Field(default=False)
     enable_email_notifications: bool = Field(default=False)

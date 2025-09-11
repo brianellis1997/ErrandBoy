@@ -290,6 +290,23 @@ async def demo_control_panel():
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/static/demo.html")
 
+
+# Expert signup route
+@app.get("/signup")
+async def expert_signup():
+    """Serve expert signup interface"""
+    from fastapi.responses import FileResponse
+    import os
+    
+    # Check if signup.html exists
+    static_path = os.path.join("static", "signup.html")
+    if os.path.exists(static_path):
+        return FileResponse(static_path)
+    else:
+        # Fallback to redirect to static file
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/static/signup.html")
+
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 

@@ -70,18 +70,32 @@ class QueryApp {
             this.setSubmitLoading(true);
             this.hideAllSections();
 
-            const response = await this.apiClient.submitQuery(
-                formData.phone,
-                formData.question,
-                formData.budgetCents
-            );
-
-            if (response.success && response.data?.query_id) {
-                this.currentQuery = response.data;
-                this.showProgressSection();
-                this.startStatusTracking(response.data.query_id);
+            if (formData.demoMode) {
+                // Use demo mode - start a demo scenario
+                this.simulateDemoProgress();
             } else {
-                throw new Error(response.error || 'Failed to submit query');
+                // Regular query submission (Live Network mode)
+                const isLiveMode = document.getElementById('liveMode').checked;
+                const response = await this.apiClient.submitQuery(
+                    formData.phone,
+                    formData.question,
+                    formData.budgetCents,
+                    isLiveMode
+                );
+
+                if (response.success && response.data?.query_id) {
+                    this.currentQuery = response.data;
+                    this.showProgressSection();
+                    
+                    // Show different message based on live mode
+                    if (isLiveMode && response.data.sms_enabled) {
+                        this.showLiveModeStarted(response.data);
+                    } else {
+                        this.startStatusTracking(response.data.query_id);
+                    }
+                } else {
+                    throw new Error(response.error || 'Failed to submit query');
+                }
             }
 
         } catch (error) {
@@ -98,7 +112,8 @@ class QueryApp {
         return {
             question: document.getElementById('question').value.trim(),
             phone: document.getElementById('phone').value.trim(),
-            budgetCents: parseInt(document.getElementById('budget').value)
+            budgetCents: parseInt(document.getElementById('budget').value),
+            demoMode: document.getElementById('demoMode').checked
         };
     }
 
@@ -245,15 +260,48 @@ class QueryApp {
     }
 
     /**
+     * Show live mode started message
+     */
+    showLiveModeStarted(responseData) {
+        const smsCount = responseData.sms_sent || 0;
+        const expertsMatched = responseData.experts_matched || 0;
+        
+        // Update progress section with live mode info
+        document.getElementById('progressBar').style.width = '30%';
+        document.getElementById('progressPercent').textContent = '30%';
+        document.getElementById('progressStatus').textContent = '🔴 Live Network Active';
+        
+        if (smsCount > 0) {
+            document.getElementById('statusMessage').textContent = 
+                `SMS notifications sent to ${smsCount} experts in your network. Responses typically arrive within 5-30 minutes.`;
+        } else {
+            document.getElementById('statusMessage').textContent = 
+                `Query matched to ${expertsMatched} experts, but no SMS notifications were sent. Check your SMS configuration.`;
+        }
+        
+        document.getElementById('timeEstimate').textContent = 'Estimated time: 5-30 minutes (live responses)';
+        
+        // Show query details
+        document.getElementById('queryDetails').classList.remove('hidden');
+        document.getElementById('queryId').textContent = responseData.query_id;
+        document.getElementById('expertsContacted').textContent = smsCount;
+        document.getElementById('responsesReceived').textContent = '0';
+        
+        // Start tracking but with longer intervals for live mode
+        this.startStatusTracking(responseData.query_id, true);
+    }
+
+    /**
      * Start status tracking
      */
-    startStatusTracking(queryId) {
+    startStatusTracking(queryId, liveMode = false) {
         this.statusTracker = new QueryStatusTracker(
             this.apiClient,
             queryId,
             (status) => this.handleStatusUpdate(status),
             (status) => this.handleQueryComplete(status),
-            (error) => this.handleTrackingError(error)
+            (error) => this.handleTrackingError(error),
+            liveMode ? 10000 : 2000  // 10 second intervals for live mode, 2 seconds for demo
         );
         
         this.statusTracker.start();
@@ -378,6 +426,104 @@ class QueryApp {
         document.getElementById('errorSection').classList.remove('hidden');
         document.getElementById('errorMessage').textContent = message;
         document.getElementById('queryForm').style.opacity = '1';
+    }
+
+    /**
+     * Simulate demo progress with fake responses
+     */
+    async simulateDemoProgress() {
+        this.currentQuery = {
+            query_id: 'demo-' + Date.now(),
+            question_text: document.getElementById('question').value,
+            user_phone: document.getElementById('phone').value
+        };
+        
+        this.showProgressSection();
+        
+        // Simulate realistic progress
+        const steps = [
+            { percent: 20, message: 'Analyzing question...', description: 'Processing your question and identifying key topics', delay: 1000 },
+            { percent: 40, message: 'Matching experts...', description: 'Found 5 relevant experts in your network', delay: 2000 },
+            { percent: 60, message: 'Collecting responses...', description: '3 experts have responded with insights', delay: 3000 },
+            { percent: 80, message: 'Synthesizing answer...', description: 'Combining expert responses into comprehensive answer', delay: 1500 },
+            { percent: 100, message: 'Complete!', description: 'Your answer is ready with full citations', delay: 1000 }
+        ];
+        
+        for (const step of steps) {
+            await new Promise(resolve => setTimeout(resolve, step.delay));
+            this.updateProgressUI(step.percent, step.message, step.description);
+            
+            // Update query details
+            if (step.percent >= 40) {
+                document.getElementById('queryDetails').classList.remove('hidden');
+                document.getElementById('queryId').textContent = this.currentQuery.query_id;
+                document.getElementById('expertsContacted').textContent = step.percent >= 40 ? '5' : '0';
+                document.getElementById('responsesReceived').textContent = step.percent >= 60 ? '3' : '0';
+            }
+        }
+        
+        // Show final results
+        setTimeout(() => {
+            this.showDemoResults();
+        }, 500);
+    }
+    
+    /**
+     * Update progress UI
+     */
+    updateProgressUI(percent, message, description) {
+        document.getElementById('progressBar').style.width = `${percent}%`;
+        document.getElementById('progressPercent').textContent = `${percent}%`;
+        document.getElementById('progressStatus').textContent = message;
+        document.getElementById('statusMessage').textContent = description;
+    }
+    
+    /**
+     * Show demo results
+     */
+    showDemoResults() {
+        this.hideProgressSection();
+        this.showResultsSection();
+        
+        // Show realistic demo answer based on the question
+        const question = document.getElementById('question').value.toLowerCase();
+        let sampleAnswer = '';
+        
+        if (question.includes('frog') && question.includes('toad')) {
+            sampleAnswer = `Based on insights from 3 experts in your network:
+
+**Key Differences:**
+• **Skin**: Frogs have smooth, moist skin; toads have bumpy, dry skin
+• **Legs**: Frogs have longer legs for jumping; toads have shorter legs for walking  
+• **Habitat**: Frogs prefer water; toads can live on dry land
+• **Eggs**: Frogs lay eggs in clusters; toads lay eggs in chains
+
+**Expert Contributors:**
+- Dr. Sarah Chen (Marine Biology) - Habitat preferences
+- Prof. Mike Rodriguez (Herpetology) - Physical characteristics  
+- Dr. Lisa Park (Wildlife Biology) - Reproduction differences`;
+        } else {
+            sampleAnswer = `Based on insights from 3 experts in your network:
+
+**Summary:**
+Our expert network provided comprehensive insights on your question. The consensus among specialists shows multiple perspectives and practical recommendations.
+
+**Key Points:**
+• Expert analysis reveals important considerations
+• Multiple approaches were suggested by different specialists
+• Practical implementation strategies were discussed
+• Long-term implications were evaluated
+
+**Expert Contributors:**
+- Dr. Alex Johnson (Subject Matter Expert)
+- Prof. Maria Garcia (Research Specialist)  
+- Dr. Chris Wong (Industry Professional)`;
+        }
+        
+        document.getElementById('answerContent').innerHTML = sampleAnswer.replace(/\n/g, '<br>');
+        document.getElementById('confidenceScore').textContent = '92';
+        document.getElementById('totalPayout').textContent = '$1.95';
+        document.getElementById('contributorCount').textContent = '3';
     }
 }
 

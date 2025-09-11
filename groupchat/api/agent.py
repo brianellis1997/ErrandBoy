@@ -18,6 +18,7 @@ class QueryRequest(BaseModel):
     user_phone: str = Field(..., description="User's phone number")
     question_text: str = Field(..., description="The question to process")
     max_spend_cents: int = Field(500, description="Maximum spend in cents", ge=1, le=10000)
+    live_mode: bool = Field(False, description="Enable live SMS notifications")
 
 
 class ContactProfileRequest(BaseModel):
@@ -247,6 +248,68 @@ async def settle_query(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to settle query: {str(e)}")
+
+
+@router.post("/enhanced-process-query")
+async def enhanced_process_query(
+    request: QueryRequest,
+    db: AsyncSession = Depends(get_db)
+) -> dict[str, Any]:
+    """Enhanced query processing with SMS notifications support"""
+    
+    try:
+        tools = AgentTools(db)
+        
+        # Step 1: Create the query
+        create_result = await tools.create_query(
+            user_phone=request.user_phone,
+            question_text=request.question_text,
+            max_spend_cents=request.max_spend_cents
+        )
+        
+        if not create_result.success:
+            raise HTTPException(status_code=400, detail=f"Query creation failed: {create_result.error}")
+        
+        query_id = create_result.data["query_id"]
+        
+        # Step 2: Match experts
+        match_result = await tools.match_experts(query_id, limit=5)
+        
+        if not match_result.success:
+            raise HTTPException(status_code=500, detail=f"Expert matching failed: {match_result.error}")
+        
+        # Step 3: Send notifications to experts (SMS if live mode enabled)
+        notify_result = await tools.send_query_to_experts(query_id, enable_sms=request.live_mode)
+        
+        if not notify_result.success:
+            raise HTTPException(status_code=500, detail=f"Expert notification failed: {notify_result.error}")
+        
+        return {
+            "success": True,
+            "data": {
+                "query_id": query_id,
+                "experts_matched": match_result.data.get("experts_matched", 0),
+                "sms_enabled": notify_result.data.get("sms_enabled", False),
+                "sms_sent": notify_result.data.get("sms_sent", 0),
+                "live_mode": request.live_mode,
+                "message": "Query created and experts notified" + 
+                          (" via SMS" if notify_result.data.get("sms_enabled") else " (demo mode)")
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Enhanced query processing failed: {str(e)}")
+
+
+@router.post("/save-contact-profile")
+async def save_contact_profile_endpoint(
+    request: ContactProfileRequest,
+    db: AsyncSession = Depends(get_db)
+) -> dict[str, Any]:
+    """Save contact profile (alternative endpoint name for frontend compatibility)"""
+    return await save_contact_profile(request, db)
 
 
 @router.get("/health")

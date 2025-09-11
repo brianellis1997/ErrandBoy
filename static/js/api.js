@@ -53,13 +53,14 @@ class APIClient {
     /**
      * Submit a new query
      */
-    async submitQuery(userPhone, questionText, maxSpendCents) {
-        return this.request('agent/process-query', {
+    async submitQuery(userPhone, questionText, maxSpendCents, liveMode = false) {
+        return this.request('agent/enhanced-process-query', {
             method: 'POST',
             body: JSON.stringify({
                 user_phone: userPhone,
                 question_text: questionText,
-                max_spend_cents: maxSpendCents
+                max_spend_cents: maxSpendCents,
+                live_mode: liveMode
             })
         });
     }
@@ -187,14 +188,15 @@ class APIError extends Error {
  * Query Status Tracker
  */
 class QueryStatusTracker {
-    constructor(apiClient, queryId, onUpdate, onComplete, onError) {
+    constructor(apiClient, queryId, onUpdate, onComplete, onError, pollInterval = 2000) {
         this.apiClient = apiClient;
         this.queryId = queryId;
         this.onUpdate = onUpdate;
         this.onComplete = onComplete;
         this.onError = onError;
+        this.pollIntervalMs = pollInterval;
         this.polling = false;
-        this.pollInterval = null;
+        this.pollTimeout = null;
         this.maxRetries = 3;
         this.retryCount = 0;
     }
@@ -214,9 +216,9 @@ class QueryStatusTracker {
      */
     stop() {
         this.polling = false;
-        if (this.pollInterval) {
-            clearTimeout(this.pollInterval);
-            this.pollInterval = null;
+        if (this.pollTimeout) {
+            clearTimeout(this.pollTimeout);
+            this.pollTimeout = null;
         }
     }
 
@@ -266,7 +268,7 @@ class QueryStatusTracker {
      */
     scheduleNextPoll() {
         if (this.polling) {
-            this.pollInterval = setTimeout(() => this.poll(), 2000);
+            this.pollTimeout = setTimeout(() => this.poll(), this.pollIntervalMs);
         }
     }
 

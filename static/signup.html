@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Join GroupChat Expert Network</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#64748B',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-2xl">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-900 mb-4">Join GroupChat Expert Network</h1>
+            <p class="text-xl text-gray-600">Share your expertise. Help others. Earn money.</p>
+        </div>
+
+        <!-- Value Proposition -->
+        <div class="bg-white rounded-xl shadow-lg p-8 mb-8">
+            <h2 class="text-2xl font-semibold text-gray-900 mb-6">How it works:</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="text-center">
+                    <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span class="text-2xl">📱</span>
+                    </div>
+                    <h3 class="font-semibold text-gray-900 mb-2">Get Notified</h3>
+                    <p class="text-sm text-gray-600">Receive SMS when questions match your expertise</p>
+                </div>
+                <div class="text-center">
+                    <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span class="text-2xl">💬</span>
+                    </div>
+                    <h3 class="font-semibold text-gray-900 mb-2">Respond</h3>
+                    <p class="text-sm text-gray-600">Share your insights in 1-2 sentences</p>
+                </div>
+                <div class="text-center">
+                    <div class="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span class="text-2xl">💰</span>
+                    </div>
+                    <h3 class="font-semibold text-gray-900 mb-2">Earn</h3>
+                    <p class="text-sm text-gray-600">Get paid when your answers are used</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sign-up Form -->
+        <form id="expertSignupForm" class="bg-white rounded-xl shadow-lg p-8">
+            <h2 class="text-2xl font-semibold text-gray-900 mb-6">Create Your Expert Profile</h2>
+            
+            <!-- Name -->
+            <div class="mb-6">
+                <label for="name" class="block text-sm font-medium text-gray-700 mb-2">
+                    Full Name *
+                </label>
+                <input
+                    type="text"
+                    id="name"
+                    name="name"
+                    required
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary"
+                    placeholder="Your full name"
+                >
+            </div>
+
+            <!-- Phone -->
+            <div class="mb-6">
+                <label for="phone" class="block text-sm font-medium text-gray-700 mb-2">
+                    Phone Number *
+                </label>
+                <input
+                    type="tel"
+                    id="phone"
+                    name="phone"
+                    required
+                    pattern="^\+?1?[0-9]{10,15}$"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary"
+                    placeholder="+1234567890"
+                >
+                <p class="mt-1 text-sm text-gray-500">We'll send you SMS notifications for relevant questions</p>
+            </div>
+
+            <!-- Email -->
+            <div class="mb-6">
+                <label for="email" class="block text-sm font-medium text-gray-700 mb-2">
+                    Email Address
+                </label>
+                <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary"
+                    placeholder="your@email.com"
+                >
+            </div>
+
+            <!-- Role -->
+            <div class="mb-6">
+                <label for="role" class="block text-sm font-medium text-gray-700 mb-2">
+                    Professional Role *
+                </label>
+                <input
+                    type="text"
+                    id="role"
+                    name="role"
+                    required
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary"
+                    placeholder="e.g., Software Engineer, Marketing Director, Product Manager"
+                >
+            </div>
+
+            <!-- Bio/Expertise -->
+            <div class="mb-6">
+                <label for="bio" class="block text-sm font-medium text-gray-700 mb-2">
+                    Your Expertise & Background *
+                </label>
+                <textarea
+                    id="bio"
+                    name="bio"
+                    rows="4"
+                    required
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary resize-none"
+                    placeholder="Tell us about your expertise, experience, and what types of questions you can help with. Be specific about your skills, industries, and areas of knowledge."
+                    minlength="50"
+                    maxlength="1000"
+                ></textarea>
+                <div class="flex justify-between mt-1">
+                    <span class="text-sm text-gray-500">Be specific about your areas of expertise</span>
+                    <span id="bioCount" class="text-sm text-gray-500">0/1000</span>
+                </div>
+            </div>
+
+            <!-- Availability -->
+            <div class="mb-6">
+                <label for="maxQueries" class="block text-sm font-medium text-gray-700 mb-2">
+                    Maximum Questions Per Day
+                </label>
+                <select id="maxQueries" name="maxQueries" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary">
+                    <option value="1">1 question per day</option>
+                    <option value="3" selected>3 questions per day</option>
+                    <option value="5">5 questions per day</option>
+                    <option value="10">10 questions per day</option>
+                </select>
+            </div>
+
+            <!-- Consent -->
+            <div class="mb-6">
+                <div class="flex items-start">
+                    <input
+                        type="checkbox"
+                        id="consent"
+                        name="consent"
+                        required
+                        class="mt-1 mr-3 h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary"
+                    >
+                    <label for="consent" class="text-sm text-gray-700">
+                        I agree to receive SMS notifications for questions matching my expertise and to participate in the GroupChat expert network. I understand this is a proof-of-concept demonstration with no real money involved.
+                    </label>
+                </div>
+            </div>
+
+            <!-- Submit -->
+            <button
+                type="submit"
+                id="submitBtn"
+                class="w-full bg-primary hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-md transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+                <span id="submitText">Join Expert Network</span>
+                <span id="submitSpinner" class="hidden">
+                    <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Creating Profile...
+                </span>
+            </button>
+        </form>
+
+        <!-- Success Message -->
+        <div id="successMessage" class="hidden mt-8 bg-green-50 border border-green-200 rounded-xl p-6">
+            <div class="flex items-center mb-4">
+                <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-3">
+                    <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                </div>
+                <h3 class="text-lg font-semibold text-green-900">Welcome to the Network!</h3>
+            </div>
+            <p class="text-green-800 mb-4">Your expert profile has been created successfully.</p>
+            <div class="bg-white border border-green-200 rounded-lg p-4">
+                <h4 class="font-medium text-green-900 mb-2">What happens next?</h4>
+                <ul class="text-sm text-green-800 space-y-1">
+                    <li>• You'll receive SMS notifications when questions match your expertise</li>
+                    <li>• Visit <strong>/expert</strong> to view and respond to questions</li>
+                    <li>• Share this link with friends to grow the network: <span id="shareLink" class="font-mono bg-green-100 px-2 py-1 rounded"></span></li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Error Message -->
+        <div id="errorMessage" class="hidden mt-8 bg-red-50 border border-red-200 rounded-xl p-6">
+            <div class="flex items-center mb-2">
+                <div class="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center mr-3">
+                    <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </div>
+                <h3 class="text-lg font-semibold text-red-900">Signup Failed</h3>
+            </div>
+            <p id="errorText" class="text-red-800"></p>
+        </div>
+    </div>
+
+    <script src="/static/js/api.js"></script>
+    <script>
+        class ExpertSignup {
+            constructor() {
+                this.apiClient = new APIClient();
+                this.initializeEventListeners();
+            }
+
+            initializeEventListeners() {
+                // Form submission
+                document.getElementById('expertSignupForm').addEventListener('submit', (e) => this.handleSubmit(e));
+                
+                // Bio character count
+                document.getElementById('bio').addEventListener('input', () => this.updateCharCount());
+            }
+
+            updateCharCount() {
+                const bio = document.getElementById('bio');
+                const counter = document.getElementById('bioCount');
+                const count = bio.value.length;
+                counter.textContent = `${count}/1000`;
+                
+                if (count > 1000) {
+                    counter.classList.add('text-red-600');
+                } else {
+                    counter.classList.remove('text-red-600');
+                }
+            }
+
+            async handleSubmit(event) {
+                event.preventDefault();
+                
+                try {
+                    this.setLoading(true);
+                    this.hideMessages();
+
+                    const formData = new FormData(event.target);
+                    const data = {
+                        name: formData.get('name'),
+                        phone: formData.get('phone'),
+                        email: formData.get('email'),
+                        role: formData.get('role'),
+                        bio: formData.get('bio'),
+                        consent: true
+                    };
+
+                    // Validate required fields
+                    if (!data.name || !data.phone || !data.role || !data.bio) {
+                        throw new Error('Please fill in all required fields');
+                    }
+
+                    const response = await this.apiClient.request('agent/save-contact-profile', {
+                        method: 'POST',
+                        body: JSON.stringify(data)
+                    });
+
+                    if (response.success) {
+                        this.showSuccess();
+                    } else {
+                        throw new Error(response.error || 'Failed to create expert profile');
+                    }
+
+                } catch (error) {
+                    this.showError(error.message);
+                } finally {
+                    this.setLoading(false);
+                }
+            }
+
+            setLoading(loading) {
+                const btn = document.getElementById('submitBtn');
+                const text = document.getElementById('submitText');
+                const spinner = document.getElementById('submitSpinner');
+                
+                if (loading) {
+                    btn.disabled = true;
+                    text.classList.add('hidden');
+                    spinner.classList.remove('hidden');
+                } else {
+                    btn.disabled = false;
+                    text.classList.remove('hidden');
+                    spinner.classList.add('hidden');
+                }
+            }
+
+            showSuccess() {
+                document.getElementById('expertSignupForm').classList.add('hidden');
+                document.getElementById('successMessage').classList.remove('hidden');
+                document.getElementById('shareLink').textContent = window.location.origin + '/signup';
+            }
+
+            showError(message) {
+                document.getElementById('errorMessage').classList.remove('hidden');
+                document.getElementById('errorText').textContent = message;
+            }
+
+            hideMessages() {
+                document.getElementById('successMessage').classList.add('hidden');
+                document.getElementById('errorMessage').classList.add('hidden');
+            }
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new ExpertSignup();
+        });
+    </script>
+</body>
+</html>
