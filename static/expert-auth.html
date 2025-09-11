@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Expert Dashboard - GroupChat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#64748B',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Authentication Screen -->
+    <div id="authScreen" class="min-h-screen flex items-center justify-center">
+        <div class="bg-white rounded-xl shadow-lg p-8 max-w-md w-full mx-4">
+            <div class="text-center mb-6">
+                <h1 class="text-2xl font-bold text-gray-900 mb-2">Expert Dashboard</h1>
+                <p class="text-gray-600">Enter your phone number to access your questions</p>
+            </div>
+            
+            <form id="authForm">
+                <div class="mb-4">
+                    <label for="phoneInput" class="block text-sm font-medium text-gray-700 mb-2">
+                        Phone Number
+                    </label>
+                    <input
+                        type="tel"
+                        id="phoneInput"
+                        placeholder="+1234567890"
+                        pattern="^\+?1?[0-9]{10,15}$"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary"
+                        required
+                    >
+                    <p class="mt-1 text-sm text-gray-500">Use the phone number from your expert profile</p>
+                </div>
+                
+                <button
+                    type="submit"
+                    id="authBtn"
+                    class="w-full bg-primary hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    <span id="authText">Access Dashboard</span>
+                    <span id="authSpinner" class="hidden">
+                        <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Authenticating...
+                    </span>
+                </button>
+            </form>
+            
+            <div id="authError" class="hidden mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                <p class="text-sm text-red-800" id="authErrorText"></p>
+            </div>
+            
+            <div class="mt-6 text-center">
+                <p class="text-sm text-gray-600">
+                    Don't have an expert profile? 
+                    <a href="/signup" class="text-primary hover:text-blue-700 font-medium">Join the network</a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Expert Dashboard -->
+    <div id="expertDashboard" class="hidden">
+        <div class="container mx-auto px-4 py-6 max-w-6xl">
+            <!-- Header -->
+            <div class="bg-white rounded-lg shadow p-6 mb-6">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-900 mb-1">Welcome back, <span id="expertName">Expert</span>!</h1>
+                        <p class="text-gray-600" id="expertBio">Loading your profile...</p>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-sm text-gray-500">Logged in as</div>
+                        <div class="font-medium" id="expertPhone">+1234567890</div>
+                        <button onclick="logout()" class="text-sm text-primary hover:text-blue-700 mt-1">Logout</button>
+                    </div>
+                </div>
+                
+                <!-- Stats -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
+                    <div class="bg-blue-50 rounded-lg p-4">
+                        <div class="text-2xl font-bold text-blue-700" id="pendingCount">-</div>
+                        <div class="text-sm text-blue-600">Pending Questions</div>
+                    </div>
+                    <div class="bg-green-50 rounded-lg p-4">
+                        <div class="text-2xl font-bold text-green-700" id="answeredCount">-</div>
+                        <div class="text-sm text-green-600">Answered</div>
+                    </div>
+                    <div class="bg-yellow-50 rounded-lg p-4">
+                        <div class="text-2xl font-bold text-yellow-700" id="responseRate">-%</div>
+                        <div class="text-sm text-yellow-600">Response Rate</div>
+                    </div>
+                    <div class="bg-purple-50 rounded-lg p-4">
+                        <div class="text-2xl font-bold text-purple-700" id="earnings">$-</div>
+                        <div class="text-sm text-purple-600">Earnings</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Questions Section -->
+            <div class="bg-white rounded-lg shadow">
+                <div class="p-6 border-b border-gray-200">
+                    <h2 class="text-xl font-semibold text-gray-900">Your Questions</h2>
+                    <p class="text-gray-600 mt-1">Questions that have been routed to you</p>
+                </div>
+                
+                <div id="questionsContainer">
+                    <div class="p-6">
+                        <div class="text-center py-8">
+                            <div class="text-gray-400 mb-4">
+                                <svg class="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </div>
+                            <h3 class="text-lg font-medium text-gray-900 mb-2">No questions yet</h3>
+                            <p class="text-gray-600">Questions from your network will appear here when they match your expertise.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/api.js"></script>
+    <script>
+        class ExpertAuth {
+            constructor() {
+                this.apiClient = new APIClient();
+                this.currentExpert = null;
+                this.initializeEventListeners();
+            }
+
+            initializeEventListeners() {
+                document.getElementById('authForm').addEventListener('submit', (e) => this.handleAuth(e));
+                
+                // Auto-format phone number
+                document.getElementById('phoneInput').addEventListener('input', (e) => this.formatPhoneNumber(e));
+            }
+
+            formatPhoneNumber(event) {
+                const input = event.target;
+                let value = input.value.replace(/\D/g, '');
+                
+                if (value.length > 0 && !value.startsWith('1')) {
+                    value = '1' + value;
+                }
+                
+                if (value.length > 11) {
+                    value = value.slice(0, 11);
+                }
+                
+                if (value.length > 0) {
+                    input.value = '+' + value;
+                }
+            }
+
+            async handleAuth(event) {
+                event.preventDefault();
+                
+                const phone = document.getElementById('phoneInput').value.trim();
+                
+                try {
+                    this.setAuthLoading(true);
+                    this.hideAuthError();
+                    
+                    // Call the backend to authenticate and get expert profile
+                    const response = await this.apiClient.request('expert-preferences/authenticate', {
+                        method: 'POST',
+                        body: JSON.stringify({ phone_number: phone })
+                    });
+                    
+                    if (response.expert) {
+                        this.currentExpert = response.expert;
+                        this.showDashboard();
+                        this.loadQuestions();
+                    } else {
+                        throw new Error('Expert profile not found. Please check your phone number or create a profile first.');
+                    }
+                    
+                } catch (error) {
+                    this.showAuthError(error.message || 'Authentication failed. Please try again.');
+                } finally {
+                    this.setAuthLoading(false);
+                }
+            }
+
+            setAuthLoading(loading) {
+                const btn = document.getElementById('authBtn');
+                const text = document.getElementById('authText');
+                const spinner = document.getElementById('authSpinner');
+                
+                if (loading) {
+                    btn.disabled = true;
+                    text.classList.add('hidden');
+                    spinner.classList.remove('hidden');
+                } else {
+                    btn.disabled = false;
+                    text.classList.remove('hidden');
+                    spinner.classList.add('hidden');
+                }
+            }
+
+            showAuthError(message) {
+                document.getElementById('authError').classList.remove('hidden');
+                document.getElementById('authErrorText').textContent = message;
+            }
+
+            hideAuthError() {
+                document.getElementById('authError').classList.add('hidden');
+            }
+
+            showDashboard() {
+                document.getElementById('authScreen').classList.add('hidden');
+                document.getElementById('expertDashboard').classList.remove('hidden');
+                
+                // Populate expert info
+                document.getElementById('expertName').textContent = this.currentExpert.name;
+                document.getElementById('expertBio').textContent = this.currentExpert.bio || 'No bio provided';
+                document.getElementById('expertPhone').textContent = this.currentExpert.phone_number;
+                
+                // Populate stats (mock for now)
+                document.getElementById('pendingCount').textContent = '0';
+                document.getElementById('answeredCount').textContent = this.currentExpert.total_responses || '0';
+                document.getElementById('responseRate').textContent = Math.round((this.currentExpert.response_rate || 0) * 100) + '%';
+                document.getElementById('earnings').textContent = '$0.00';
+            }
+
+            async loadQuestions() {
+                try {
+                    // Get questions for this expert
+                    const response = await this.apiClient.request(`expert-preferences/questions/${this.currentExpert.id}`, {
+                        method: 'GET'
+                    });
+                    
+                    this.displayQuestions(response.questions || []);
+                    
+                } catch (error) {
+                    console.error('Failed to load questions:', error);
+                }
+            }
+
+            displayQuestions(questions) {
+                const container = document.getElementById('questionsContainer');
+                
+                if (questions.length === 0) {
+                    // Keep the "no questions" message
+                    return;
+                }
+                
+                // Create questions HTML
+                let questionsHTML = '';
+                questions.forEach(question => {
+                    questionsHTML += this.createQuestionCard(question);
+                });
+                
+                container.innerHTML = `<div class="divide-y divide-gray-200">${questionsHTML}</div>`;
+            }
+
+            createQuestionCard(question) {
+                const timeAgo = this.getTimeAgo(new Date(question.created_at));
+                const status = question.status || 'pending';
+                
+                return `
+                    <div class="p-6">
+                        <div class="flex justify-between items-start mb-4">
+                            <div class="flex-1">
+                                <h3 class="text-lg font-medium text-gray-900 mb-2">${question.question_text}</h3>
+                                <div class="flex items-center text-sm text-gray-500 space-x-4">
+                                    <span>From: ${question.user_phone}</span>
+                                    <span>${timeAgo}</span>
+                                    <span class="px-2 py-1 rounded-full text-xs font-medium ${this.getStatusClass(status)}">${status}</span>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-sm font-medium text-green-600">Reward: $${(question.max_spend_cents / 100).toFixed(2)}</div>
+                            </div>
+                        </div>
+                        
+                        ${status === 'pending' ? this.createResponseForm(question.id) : ''}
+                        ${question.response ? this.createResponseDisplay(question.response) : ''}
+                    </div>
+                `;
+            }
+
+            createResponseForm(questionId) {
+                return `
+                    <div class="mt-4 p-4 bg-gray-50 rounded-lg">
+                        <textarea 
+                            id="response_${questionId}"
+                            placeholder="Share your insights in 1-2 sentences..."
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary resize-none"
+                            rows="3"
+                            maxlength="500"
+                        ></textarea>
+                        <div class="flex justify-between items-center mt-3">
+                            <span class="text-sm text-gray-500">Keep it concise and helpful</span>
+                            <div class="space-x-2">
+                                <button 
+                                    onclick="expertAuth.respondToQuestion('${questionId}', 'pass')"
+                                    class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                                >
+                                    Pass
+                                </button>
+                                <button 
+                                    onclick="expertAuth.respondToQuestion('${questionId}', 'answer')"
+                                    class="px-4 py-2 text-sm font-medium text-white bg-primary border border-transparent rounded-md hover:bg-blue-700"
+                                >
+                                    Submit Answer
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            createResponseDisplay(response) {
+                return `
+                    <div class="mt-4 p-4 bg-blue-50 rounded-lg">
+                        <div class="text-sm font-medium text-blue-900 mb-2">Your Response:</div>
+                        <div class="text-blue-800">${response}</div>
+                    </div>
+                `;
+            }
+
+            async respondToQuestion(questionId, action) {
+                try {
+                    let responseText = '';
+                    
+                    if (action === 'answer') {
+                        const textarea = document.getElementById(`response_${questionId}`);
+                        responseText = textarea.value.trim();
+                        
+                        if (!responseText) {
+                            alert('Please enter your response before submitting.');
+                            return;
+                        }
+                    } else {
+                        responseText = 'PASS';
+                    }
+                    
+                    // Submit response
+                    const response = await this.apiClient.request('expert-preferences/respond', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            question_id: questionId,
+                            expert_id: this.currentExpert.id,
+                            response: responseText
+                        })
+                    });
+                    
+                    if (response.success) {
+                        // Reload questions to show updated status
+                        this.loadQuestions();
+                    } else {
+                        throw new Error(response.error || 'Failed to submit response');
+                    }
+                    
+                } catch (error) {
+                    alert('Failed to submit response: ' + error.message);
+                }
+            }
+
+            getTimeAgo(date) {
+                const now = new Date();
+                const diffMs = now - date;
+                const diffMins = Math.floor(diffMs / 60000);
+                const diffHours = Math.floor(diffMins / 60);
+                const diffDays = Math.floor(diffHours / 24);
+                
+                if (diffMins < 1) return 'Just now';
+                if (diffMins < 60) return `${diffMins}m ago`;
+                if (diffHours < 24) return `${diffHours}h ago`;
+                return `${diffDays}d ago`;
+            }
+
+            getStatusClass(status) {
+                switch (status.toLowerCase()) {
+                    case 'pending': return 'bg-yellow-100 text-yellow-800';
+                    case 'answered': return 'bg-green-100 text-green-800';
+                    case 'passed': return 'bg-gray-100 text-gray-800';
+                    default: return 'bg-gray-100 text-gray-800';
+                }
+            }
+        }
+
+        // Global functions
+        function logout() {
+            location.reload();
+        }
+
+        // Initialize the expert auth system
+        let expertAuth;
+        document.addEventListener('DOMContentLoaded', () => {
+            expertAuth = new ExpertAuth();
+        });
+    </script>
+</body>
+</html>

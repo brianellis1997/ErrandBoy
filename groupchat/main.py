@@ -307,6 +307,23 @@ async def expert_signup():
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/static/signup.html")
 
+
+# Real expert dashboard route (with authentication)
+@app.get("/expert/dashboard")
+async def expert_dashboard():
+    """Serve real expert dashboard with phone authentication"""
+    from fastapi.responses import FileResponse
+    import os
+    
+    # Check if expert-auth.html exists
+    static_path = os.path.join("static", "expert-auth.html")
+    if os.path.exists(static_path):
+        return FileResponse(static_path)
+    else:
+        # Fallback to redirect to static file
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/static/expert-auth.html")
+
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 

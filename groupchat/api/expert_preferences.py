@@ -35,6 +35,7 @@ from groupchat.schemas.expert_notifications import (
     ResponseQualityReviewCreate,
     ResponseQualityReviewResponse,
 )
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -536,3 +537,169 @@ async def delete_response_draft(
     
     logger.info(f"Deleted draft {draft_id} for expert {contact_id}")
     return {"message": "Draft deleted successfully"}
+
+
+# New endpoints for expert authentication and question management
+
+class ExpertAuthRequest(BaseModel):
+    phone_number: str
+
+class ExpertAuthResponse(BaseModel):
+    expert: dict
+    success: bool = True
+
+class ExpertQuestionResponse(BaseModel):
+    id: str
+    question_text: str
+    user_phone: str
+    created_at: str
+    status: str
+    max_spend_cents: int
+    response: Optional[str] = None
+
+class ExpertResponseRequest(BaseModel):
+    question_id: str
+    expert_id: str
+    response: str
+
+
+@router.post("/authenticate", response_model=ExpertAuthResponse)
+async def authenticate_expert(
+    auth_request: ExpertAuthRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """Authenticate expert by phone number and return profile"""
+    try:
+        # Find expert by phone number
+        result = await db.execute(
+            select(Contact).where(
+                and_(
+                    Contact.phone_number == auth_request.phone_number,
+                    Contact.status == ContactStatus.ACTIVE
+                )
+            )
+        )
+        expert = result.scalar_one_or_none()
+        
+        if not expert:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Expert profile not found. Please check your phone number or create a profile first."
+            )
+        
+        # Return expert data
+        expert_data = {
+            "id": str(expert.id),
+            "name": expert.name,
+            "phone_number": expert.phone_number,
+            "email": expert.email,
+            "bio": expert.bio,
+            "trust_score": expert.trust_score,
+            "response_rate": expert.response_rate,
+            "total_responses": expert.total_responses
+        }
+        
+        logger.info(f"Expert authenticated: {expert.name} ({expert.phone_number})")
+        return ExpertAuthResponse(expert=expert_data)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Expert authentication error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Authentication failed"
+        )
+
+
+@router.get("/questions/{expert_id}")
+async def get_expert_questions(
+    expert_id: UUID,
+    db: AsyncSession = Depends(get_db)
+):
+    """Get questions that have been routed to this expert"""
+    try:
+        # Get contributions for this expert (questions they've been contacted about)
+        from groupchat.db.models import Contribution
+        
+        result = await db.execute(
+            select(Contribution, QueryModel)
+            .join(QueryModel, Contribution.query_id == QueryModel.id)
+            .where(Contribution.contact_id == expert_id)
+            .order_by(Contribution.requested_at.desc())
+        )
+        
+        contributions = result.all()
+        
+        questions = []
+        for contribution, query in contributions:
+            question_data = {
+                "id": str(query.id),
+                "question_text": query.question_text,
+                "user_phone": query.user_phone,
+                "created_at": query.created_at.isoformat(),
+                "status": "answered" if contribution.response_text and contribution.response_text != "PASS" else "pending",
+                "max_spend_cents": query.total_cost_cents,
+                "response": contribution.response_text if contribution.response_text and contribution.response_text != "PASS" else None
+            }
+            questions.append(question_data)
+        
+        logger.info(f"Retrieved {len(questions)} questions for expert {expert_id}")
+        return {"questions": questions, "success": True}
+        
+    except Exception as e:
+        logger.error(f"Error retrieving questions for expert {expert_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve questions"
+        )
+
+
+@router.post("/respond")
+async def submit_expert_response(
+    response_request: ExpertResponseRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """Submit expert response to a question"""
+    try:
+        from groupchat.db.models import Contribution
+        from datetime import datetime
+        
+        # Find the contribution record
+        result = await db.execute(
+            select(Contribution).where(
+                and_(
+                    Contribution.query_id == UUID(response_request.question_id),
+                    Contribution.contact_id == UUID(response_request.expert_id)
+                )
+            )
+        )
+        contribution = result.scalar_one_or_none()
+        
+        if not contribution:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Question not found or not assigned to this expert"
+            )
+        
+        # Update the contribution with the response
+        contribution.response_text = response_request.response
+        contribution.responded_at = datetime.utcnow()
+        if contribution.requested_at:
+            contribution.response_time_minutes = (
+                datetime.utcnow() - contribution.requested_at
+            ).total_seconds() / 60
+        
+        await db.commit()
+        
+        logger.info(f"Expert {response_request.expert_id} responded to question {response_request.question_id}")
+        return {"success": True, "message": "Response submitted successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error submitting expert response: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to submit response"
+        )
