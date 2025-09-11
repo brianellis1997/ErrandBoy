@@ -596,7 +596,7 @@ async def authenticate_expert(
             "bio": expert.bio,
             "trust_score": expert.trust_score,
             "response_rate": expert.response_rate,
-            "total_responses": expert.total_responses
+            "total_responses": expert.total_contributions
         }
         
         logger.info(f"Expert authenticated: {expert.name} ({expert.phone_number})")

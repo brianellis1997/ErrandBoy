@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from groupchat.config import settings
-from groupchat.db.models import Contact, ContactExpertise, ContactStatus, ExpertiseTag, Query
+from groupchat.db.models import Contact, ContactExpertise, ContactStatus, ExpertiseTag, Query, Contribution
 from groupchat.schemas.contacts import ContactResponse
 from groupchat.services.contacts import ContactService
 from groupchat.schemas.matching import (
@@ -139,13 +139,13 @@ class ExpertMatchingService:
         # Get recently contacted expert IDs
         recent_stmt = (
             select(Contact.id)
-            .join(Contact.contributions)
-            .where(Contact.contributions.any(
+            .join(Contribution, Contact.id == Contribution.contact_id)
+            .where(
                 and_(
-                    Contact.contributions.requested_at >= cutoff_time,
-                    Contact.contributions.query_id != query_id
+                    Contribution.requested_at >= cutoff_time,
+                    Contribution.query_id != query_id
                 )
-            ))
+            )
         )
         
         result = await self.db.execute(recent_stmt)
@@ -192,6 +192,9 @@ class ExpertMatchingService:
         matches = []
         for expert in experts:
             similarity = similarity_map.get(expert.id, 0.0)
+            # Handle potential array similarity values
+            if hasattr(similarity, '__len__') and not isinstance(similarity, str):
+                similarity = float(similarity[0]) if len(similarity) > 0 else 0.0
             if similarity > 0.1:  # Minimum similarity threshold
                 matches.append((expert, similarity))
         
@@ -369,11 +372,9 @@ class ExpertMatchingService:
         stmt = (
             select(func.count())
             .select_from(Contact)
-            .join(Contact.contributions)
+            .join(Contribution, Contact.id == Contribution.contact_id)
             .where(Contact.id == expert_id)
-            .where(Contact.contributions.any(
-                Contact.contributions.requested_at >= cutoff_time
-            ))
+            .where(Contribution.requested_at >= cutoff_time)
         )
         
         result = await self.db.execute(stmt)
