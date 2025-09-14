@@ -6,7 +6,8 @@ from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select, update, cast
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -458,7 +459,7 @@ class QueryService:
                 context=func.jsonb_set(
                     Query.context,
                     ['expert_matches'],
-                    func.cast(expert_matches, type_=func.jsonb())
+                    cast(expert_matches, JSONB)
                 ),
                 updated_at=datetime.utcnow()
             )
@@ -578,7 +579,7 @@ class QueryService:
                 context=func.jsonb_set(
                     Query.context,
                     [key],
-                    func.cast(data, type_=func.jsonb())
+                    cast(data, JSONB)
                 ),
                 updated_at=datetime.utcnow()
             )
