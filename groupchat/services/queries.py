@@ -362,7 +362,7 @@ class QueryService:
                 query_id=query_id,
                 limit=max_experts or query.max_experts,
                 location_boost=location_boost,
-                exclude_recent=True,
+                exclude_recent=False,  # Temporarily disabled for testing
                 wave_size=3
             )
             

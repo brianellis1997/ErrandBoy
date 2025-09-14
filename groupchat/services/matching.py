@@ -242,9 +242,12 @@ class ExpertMatchingService:
                 else:
                     similarity = float(similarity)
                 
+                # Debug: Log similarity scores
+                logger.info(f"Expert {expert.name} (ID: {expert.id}): similarity = {similarity}")
+                
                 # Safe comparison after ensuring similarity is a scalar float
-                if similarity > 0.1:  # Minimum similarity threshold
-                    matches.append((expert, similarity))
+                # Temporarily remove threshold to see all scores
+                matches.append((expert, similarity))
                     
             except Exception as e:
                 logger.warning(f"Error processing similarity for expert {expert.id}: {e}, type: {type(similarity)}")
