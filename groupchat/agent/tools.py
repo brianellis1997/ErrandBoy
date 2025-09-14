@@ -302,7 +302,7 @@ class AgentTools:
         try:
             from groupchat.config import settings
             
-            logger.info(f"Sending query {query_id} to experts (SMS enabled: {enable_sms and settings.enable_real_sms})")
+            logger.info(f"Sending query {query_id} to experts (SMS enabled: {enable_sms and settings.enable_sms})")
             
             query_uuid = uuid.UUID(query_id)
             
@@ -316,25 +316,35 @@ class AgentTools:
                 )
             
             # Check if SMS should be sent based on config and request
-            should_send_sms = enable_sms and settings.enable_real_sms
+            should_send_sms = enable_sms and settings.enable_sms
             
             if should_send_sms:
-                # Get matched experts from query metadata
-                from groupchat.services.matching import ExpertMatchingService
-                from groupchat.schemas.matching import MatchingRequest
+                # Get matched experts from query context (already stored by match_experts)
+                expert_matches = await self.query_service.get_expert_matches(query_uuid)
                 
-                matching_service = ExpertMatchingService(self.db)
-                request = MatchingRequest(
-                    query_id=query_uuid,
-                    limit=query.max_experts,
-                    location_boost=True,
-                    exclude_recent=True,
-                    wave_size=3
-                )
+                if not expert_matches or not expert_matches.get("matches"):
+                    logger.warning(f"No expert matches found in query context for query {query_id}")
+                    return ToolResult(
+                        success=True,
+                        data={
+                            "query_id": query_id,
+                            "sms_enabled": True,
+                            "experts_contacted": 0,
+                            "message": "No experts found to contact"
+                        },
+                        tool_name="send_query_to_experts"
+                    )
                 
-                # Get expert matches
-                matching_result = await matching_service.match_experts(query, request)
-                matched_contacts = [match.contact for match in matching_result.matches]
+                # Get contact details for matched experts
+                from groupchat.services.contacts import ContactService
+                contact_service = ContactService(self.db)
+                matched_contacts = []
+                
+                for match in expert_matches["matches"]:
+                    expert_id = uuid.UUID(match["expert_id"])
+                    contact = await contact_service.get_contact(expert_id)
+                    if contact:
+                        matched_contacts.append(contact)
                 
                 if matched_contacts:
                     # Send SMS notifications to matched experts

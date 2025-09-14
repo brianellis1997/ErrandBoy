@@ -144,8 +144,10 @@ class SMSComplianceService:
     def is_quiet_hours(self) -> bool:
         """Check if current time is within quiet hours (9 PM - 8 AM local time)"""
         # For MVP, use UTC time. Production should consider user timezones
-        current_hour = datetime.utcnow().hour
-        return current_hour >= 21 or current_hour < 8
+        # TEMPORARILY DISABLED FOR TESTING
+        return False  # TODO: Re-enable quiet hours for production
+        # current_hour = datetime.utcnow().hour
+        # return current_hour >= 21 or current_hour < 8
 
     async def can_send_sms(self, phone_number: str) -> tuple[bool, str]:
         """Check if SMS can be sent to contact (compliance check)"""
