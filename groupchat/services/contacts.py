@@ -239,6 +239,60 @@ class ContactService:
         await self.db.refresh(contact)
         return contact
 
+    async def update_expertise(
+        self,
+        contact_id: UUID,
+        expertise_summary: str,
+        expertise_tags: list[str] = None
+    ) -> bool:
+        """Update contact's expertise summary and generate new embedding"""
+        contact = await self.get_contact(contact_id)
+        if not contact:
+            return False
+
+        try:
+            # Update expertise summary
+            contact.expertise_summary = expertise_summary
+            
+            # Generate new embedding if real embeddings are enabled
+            if settings.enable_real_embeddings and settings.openai_api_key:
+                try:
+                    from groupchat.services.embeddings import EmbeddingService
+                    embedding_service = EmbeddingService()
+                    
+                    # Generate embedding combining expertise summary and bio
+                    embedding = await embedding_service.generate_expertise_embedding(
+                        expertise_summary, contact.bio or ""
+                    )
+                    contact.expertise_embedding = embedding
+                    logger.info(f"Generated new expertise embedding for contact {contact_id}")
+                    
+                except Exception as e:
+                    logger.error(f"Failed to generate embedding for expertise update: {e}")
+
+            # Update expertise tags if provided
+            if expertise_tags:
+                # Remove existing expertise associations
+                await self._remove_all_expertise_tags(contact_id)
+                # Add new expertise tags
+                await self._add_expertise_tags(contact_id, expertise_tags)
+
+            contact.updated_at = datetime.utcnow()
+            await self.db.commit()
+            logger.info(f"Updated expertise for contact {contact_id}")
+            return True
+            
+        except Exception as e:
+            await self.db.rollback()
+            logger.error(f"Failed to update expertise for contact {contact_id}: {e}")
+            return False
+
+    async def _remove_all_expertise_tags(self, contact_id: UUID) -> None:
+        """Remove all expertise tag associations for a contact"""
+        from sqlalchemy import delete
+        stmt = delete(ContactExpertise).where(ContactExpertise.contact_id == contact_id)
+        await self.db.execute(stmt)
+
     async def _get_contact_by_phone(self, phone_number: str) -> Contact | None:
         """Helper to get contact by phone number"""
         query = select(Contact).where(Contact.phone_number == phone_number)

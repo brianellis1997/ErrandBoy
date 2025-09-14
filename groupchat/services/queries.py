@@ -305,16 +305,11 @@ class QueryService:
 
     async def _generate_embedding(self, text: str) -> list[float]:
         """Generate embedding for query text"""
-        if settings.enable_real_embeddings:
-            # TODO: Implement real OpenAI embeddings
-            logger.info("Real embeddings not yet implemented, using mock")
-
-        # Generate mock embedding (1536 dimensions for OpenAI compatibility)
-        import random
-        random.seed(hash(text))  # Deterministic for testing
-        embedding = [random.uniform(-1, 1) for _ in range(1536)]
-
-        logger.debug(f"Generated mock embedding of length {len(embedding)}")
+        from groupchat.services.embeddings import EmbeddingService
+        
+        embedding_service = EmbeddingService()
+        embedding = await embedding_service.generate_embedding(text)
+        logger.debug(f"Generated embedding of length {len(embedding)}")
         return embedding
 
     def _is_valid_status_transition(
