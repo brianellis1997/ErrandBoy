@@ -223,3 +223,7 @@ yarn-error.log*
 CLAUDE.md
 initial_ideas.md
 .github/*
+# Elastic Beanstalk Files
+.elasticbeanstalk/*
+!.elasticbeanstalk/*.cfg.yml
+!.elasticbeanstalk/*.global.yml
