@@ -97,3 +97,30 @@ async def debug_config():
         }
     except Exception as e:
         return {"error": str(e)}
+
+@router.post("/create-tables")
+async def create_tables():
+    """Create database tables"""
+    try:
+        from groupchat.db.database import engine, Base
+        from groupchat.db.models import (
+            Contact, Query, Contribution, CompiledAnswer, Citation,
+            LedgerEntry, ExpertNotification, ExpertResponse
+        )
+        from sqlalchemy import text
+        
+        # Create all tables
+        async with engine.begin() as conn:
+            # First try to create pgvector extension
+            try:
+                await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+            except Exception as e:
+                # Ignore pgvector errors - continue without it
+                pass
+            
+            # Create all tables
+            await conn.run_sync(Base.metadata.create_all)
+        
+        return {"success": True, "message": "Database tables created successfully"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
