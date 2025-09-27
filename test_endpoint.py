@@ -17,8 +17,19 @@ async def test_create_contact():
 async def test_with_db(db: AsyncSession = Depends(get_db)):
     """Test with database connection only"""
     try:
-        result = await db.execute("SELECT 1 as test")
+        from sqlalchemy import text
+        result = await db.execute(text("SELECT 1 as test"))
         row = result.fetchone()
         return {"database": "connected", "test_query": row[0]}
     except Exception as e:
         return {"database": "error", "message": str(e)}
+
+@router.post("/test-contact-service")
+async def test_contact_service(db: AsyncSession = Depends(get_db)):
+    """Test ContactService initialization only"""
+    try:
+        from groupchat.services.contacts import ContactService
+        service = ContactService(db)
+        return {"contact_service": "initialized", "success": True}
+    except Exception as e:
+        return {"contact_service": "error", "message": str(e)}
