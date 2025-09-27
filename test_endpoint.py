@@ -67,3 +67,33 @@ async def test_direct_contact():
         }
     except Exception as e:
         return {"error": str(e)}
+
+@router.get("/debug-config")
+async def debug_config():
+    """Debug configuration - show database URL without password"""
+    try:
+        from groupchat.config import settings
+        import os
+        
+        # Get DATABASE_URL and mask password
+        db_url = str(settings.database_url)
+        if "@" in db_url:
+            parts = db_url.split("@")
+            host_part = "@" + parts[1]
+            user_part = parts[0]
+            if ":" in user_part:
+                user, password = user_part.rsplit(":", 1)
+                masked_url = user + ":***@" + parts[1]
+            else:
+                masked_url = db_url
+        else:
+            masked_url = db_url
+            
+        return {
+            "database_url": masked_url,
+            "env_database_url": os.getenv("DATABASE_URL", "NOT_SET")[:50] + "..." if os.getenv("DATABASE_URL") else "NOT_SET",
+            "app_env": settings.app_env,
+            "is_production": settings.app_env == "production"
+        }
+    except Exception as e:
+        return {"error": str(e)}
