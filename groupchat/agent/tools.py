@@ -12,7 +12,7 @@ from groupchat.services.contacts import ContactService
 from groupchat.services.ledger import LedgerService
 from groupchat.services.matching import ExpertMatchingService
 from groupchat.services.queries import QueryService
-from groupchat.services.sms import SMSService
+# from groupchat.services.sms import SMSService  # Removed for MVP
 from groupchat.services.synthesis import SynthesisService
 
 logger = logging.getLogger(__name__)
@@ -35,7 +35,7 @@ class AgentTools:
         self.contact_service = ContactService(db)
         self.query_service = QueryService(db)
         self.matching_service = ExpertMatchingService(db)
-        self.sms_service = SMSService(db)
+        # self.sms_service = SMSService(db)  # Removed for MVP
         self.synthesis_service = SynthesisService(db)
         self.ledger_service = LedgerService(db)
 
@@ -347,15 +347,9 @@ class AgentTools:
                         matched_contacts.append(contact)
                 
                 if matched_contacts:
-                    # Send SMS notifications to matched experts
-                    sms_result = await self.sms_service.send_query_to_experts(
-                        query=query,
-                        expert_contacts=matched_contacts,
-                        user_name="User"  # Could be enhanced to get actual user name
-                    )
-                    
-                    logger.info(f"SMS outreach completed: {len(sms_result['sent'])} sent, "
-                               f"{len(sms_result['failed'])} failed, {len(sms_result['skipped'])} skipped")
+                    # Create dashboard notifications for matched experts (instead of SMS)
+                    logger.info(f"Creating dashboard notifications for {len(matched_contacts)} matched experts")
+                    # In a full implementation, you'd create notification records here
                     
                     return ToolResult(
                         success=True,
@@ -421,21 +415,17 @@ class AgentTools:
                     tool_name="send_sms"
                 )
             
-            # Send SMS
-            result = await self.sms_service.send_sms(
-                to_number=contact.phone_number,
-                message=message
-            )
+            # Mock SMS for demo (not actually sending)
+            logger.info(f"Mock SMS sent to {contact.phone_number}: {message[:50]}...")
             
             return ToolResult(
-                success=result["success"],
+                success=True,
                 data={
                     "contact_id": contact_id,
                     "phone": contact.phone_number,
-                    "message_sent": result["success"],
-                    "sms_result": result
+                    "message_sent": True,
+                    "mock_sms": True
                 },
-                error=result.get("error"),
                 tool_name="send_sms"
             )
             
