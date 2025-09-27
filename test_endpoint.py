@@ -33,3 +33,37 @@ async def test_contact_service(db: AsyncSession = Depends(get_db)):
         return {"contact_service": "initialized", "success": True}
     except Exception as e:
         return {"contact_service": "error", "message": str(e)}
+
+@router.post("/test-direct-contact")
+async def test_direct_contact():
+    """Test contact creation without database dependency"""
+    try:
+        from groupchat.schemas.contacts import ContactCreate
+        from groupchat.db.models import Contact
+        import uuid
+        
+        # Just test object creation, no database
+        contact_data = ContactCreate(
+            name="Test User",
+            phone_number="+1234567890",
+            bio="Test bio",
+            is_available=True,
+            max_queries_per_day=3,
+            preferred_contact_method="sms"
+        )
+        
+        contact = Contact(
+            id=uuid.uuid4(),
+            phone_number=contact_data.phone_number,
+            name=contact_data.name,
+            bio=contact_data.bio,
+            is_available=contact_data.is_available,
+        )
+        
+        return {
+            "contact_model": "created",
+            "name": contact.name,
+            "phone": contact.phone_number
+        }
+    except Exception as e:
+        return {"error": str(e)}
