@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from groupchat.api import admin, agent, contacts, demo, expert_preferences, health, ledger, matching, payments, queries, webhooks, websockets
+from test_endpoint import router as test_router
 from groupchat.config import settings
 from groupchat.db.database import close_db, init_db
 from groupchat.middleware.request_id import RequestIDMiddleware
@@ -201,6 +202,13 @@ app.include_router(
 app.include_router(
     expert_preferences.router,
     tags=["expert-preferences"]
+)
+
+# Test router for debugging
+app.include_router(
+    test_router,
+    prefix="/api/v1/test",
+    tags=["test"]
 )
 
 # Answer display route
