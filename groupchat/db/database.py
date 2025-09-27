@@ -1,6 +1,7 @@
 """Database connection and session management"""
 
 import logging
+import os
 from collections.abc import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import (
@@ -37,12 +38,14 @@ Base = declarative_base()
 async def init_db() -> None:
     """Initialize database connection and create tables if needed"""
     try:
-        # Skip actual database connection for now if not configured
-        if "user:password" in str(settings.database_url):
+        # Skip if using default placeholder URL
+        db_url = str(settings.database_url)
+        if "user:password@localhost" in db_url and "DATABASE_URL" not in os.environ:
             logger.warning("Database not configured - using mock mode")
             return
 
         # Test connection
+        logger.info(f"Connecting to database...")
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
         logger.info("Database connection established successfully")
