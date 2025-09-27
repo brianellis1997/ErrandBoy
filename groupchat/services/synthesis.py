@@ -30,8 +30,9 @@ class SynthesisService:
     def __init__(self, db: AsyncSession):
         self.db = db
         self.openai_client = None
-        if settings.openai_api_key:
-            self.openai_client = AsyncOpenAI(api_key=settings.openai_api_key)
+        # Disable OpenAI client for MVP/demo
+        # if settings.openai_api_key:
+        #     self.openai_client = AsyncOpenAI(api_key=settings.openai_api_key)
 
     async def synthesize_answer(
         self,
