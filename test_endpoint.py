@@ -136,10 +136,13 @@ async def create_tables():
             user_phone VARCHAR(20) NOT NULL,
             question_text TEXT NOT NULL,
             status VARCHAR(20) DEFAULT 'pending' NOT NULL,
-            max_spend_cents INTEGER DEFAULT 50 NOT NULL,
-            actual_spend_cents INTEGER DEFAULT 0 NOT NULL,
+            max_experts INTEGER DEFAULT 5 NOT NULL,
+            min_experts INTEGER DEFAULT 3 NOT NULL,
+            timeout_minutes INTEGER DEFAULT 30 NOT NULL,
+            total_cost_cents INTEGER DEFAULT 0 NOT NULL,
+            platform_fee_cents INTEGER DEFAULT 0 NOT NULL,
+            context JSONB DEFAULT '{}' NOT NULL,
             error_message TEXT,
-            extra_metadata JSONB DEFAULT '{}' NOT NULL,
             created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
             updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
             deleted_at TIMESTAMP WITH TIME ZONE
@@ -198,5 +201,30 @@ async def create_tables():
                 await conn.execute(text(stmt))
         
         return {"success": True, "message": "Minimal database schema created successfully"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@router.post("/fix-queries-table")
+async def fix_queries_table():
+    """Add missing columns to queries table"""
+    try:
+        from groupchat.db.database import engine
+        from sqlalchemy import text
+        
+        # Add missing columns to queries table
+        alter_queries_sql = """
+        ALTER TABLE queries 
+        ADD COLUMN IF NOT EXISTS max_experts INTEGER DEFAULT 5,
+        ADD COLUMN IF NOT EXISTS min_experts INTEGER DEFAULT 3,
+        ADD COLUMN IF NOT EXISTS timeout_minutes INTEGER DEFAULT 30,
+        ADD COLUMN IF NOT EXISTS total_cost_cents INTEGER DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS platform_fee_cents INTEGER DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS context JSONB DEFAULT '{}';
+        """
+        
+        async with engine.begin() as conn:
+            await conn.execute(text(alter_queries_sql))
+        
+        return {"success": True, "message": "Queries table updated successfully"}
     except Exception as e:
         return {"success": False, "error": str(e)}
