@@ -21,18 +21,31 @@
 </head>
 <body class="bg-gray-50 min-h-screen">
     <div class="container mx-auto px-4 py-8 max-w-2xl">
+        <!-- Navigation Bar -->
+        <nav class="bg-white rounded-lg shadow-md p-4 mb-8">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900">GroupChat</h1>
+                    <p class="text-sm text-gray-600">Network Intelligence System</p>
+                </div>
+                <div class="flex gap-3">
+                    <a href="/signup" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md transition-colors font-medium">
+                        Join as Expert
+                    </a>
+                    <a href="/expert/dashboard" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors font-medium">
+                        Expert Login
+                    </a>
+                    <a href="/admin" class="text-gray-600 hover:text-gray-900 px-4 py-2 rounded-md transition-colors">
+                        Admin
+                    </a>
+                </div>
+            </div>
+        </nav>
+
         <!-- Header -->
         <div class="text-center mb-8">
-            <h1 class="text-3xl font-bold text-gray-900 mb-2">GroupChat</h1>
+            <h2 class="text-3xl font-bold text-gray-900 mb-2">Ask a Question</h2>
             <p class="text-gray-600">Submit your question to our expert network</p>
-            <div class="mt-4">
-                <a href="/demo" class="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 transition-colors">
-                    🎬 Demo Mode
-                    <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-2M7 7h10v10M17 7l-10 10"></path>
-                    </svg>
-                </a>
-            </div>
         </div>
 
         <!-- Main Content -->

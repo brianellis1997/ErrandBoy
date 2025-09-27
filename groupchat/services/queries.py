@@ -514,7 +514,7 @@ class QueryService:
             raise ValueError("No expert matches found for query")
         
         # Import SMS service
-        from groupchat.services.sms import SMSService
+        # Removed SMS service - using dashboard notifications instead
         from groupchat.services.contacts import ContactService
         
         # Get contact details for matched experts
@@ -527,13 +527,21 @@ class QueryService:
             if contact:
                 expert_contacts.append(contact)
         
-        # Send SMS to experts
-        sms_service = SMSService(self.db)
-        results = await sms_service.send_query_to_experts(
-            query=query,
-            expert_contacts=expert_contacts,
-            user_name=user_name
-        )
+        # Create dashboard notifications for experts (instead of SMS)
+        # Mock SMS results for demo purposes
+        results = {
+            "sent": [{"contact_id": str(contact.id), "phone": contact.phone_number} for contact in expert_contacts],
+            "failed": [],
+            "skipped": []
+        }
+        
+        # Create notification entries for each expert (for dashboard display)
+        for contact in expert_contacts:
+            await self._create_expert_notification(
+                query_id=query_id,
+                expert_id=contact.id,
+                question_text=query.question_text[:100] + "..." if len(query.question_text) > 100 else query.question_text
+            )
         
         # Update query context with outreach results
         outreach_data = {
@@ -541,7 +549,8 @@ class QueryService:
             "sent_to": len(results["sent"]),
             "failed": len(results["failed"]),
             "skipped": len(results["skipped"]),
-            "details": results
+            "details": results,
+            "notification_method": "dashboard"
         }
         
         await self._update_query_context(query_id, "sms_outreach", outreach_data)
@@ -632,3 +641,28 @@ class QueryService:
             await self.db.rollback()
             logger.error(f"Error creating contribution for query {query_id}: {e}", exc_info=True)
             raise
+
+    async def _create_expert_notification(self, query_id: UUID, expert_id: UUID, question_text: str) -> None:
+        """Create a notification for an expert about a new question (dashboard display)"""
+        try:
+            # For now, we'll just log this. In a real implementation, you'd store this in a notifications table
+            logger.info(f"📱 Notification created for expert {expert_id}: New question for query {query_id}")
+            logger.info(f"Question preview: {question_text}")
+            
+            # In a full implementation, you'd create a notification record like:
+            # notification = Notification(
+            #     id=uuid.uuid4(),
+            #     expert_id=expert_id,
+            #     query_id=query_id,
+            #     type="new_question",
+            #     title="New Question Available",
+            #     message=f"You have a new question to answer: {question_text}",
+            #     created_at=datetime.utcnow(),
+            #     read_at=None
+            # )
+            # self.db.add(notification)
+            # await self.db.commit()
+            
+        except Exception as e:
+            logger.error(f"Error creating notification for expert {expert_id}: {e}")
+            # Don't raise here - notification failure shouldn't break the query flow

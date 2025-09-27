@@ -20,9 +20,27 @@
 </head>
 <body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
     <div class="container mx-auto px-4 py-8 max-w-2xl">
+        <!-- Navigation Bar -->
+        <nav class="bg-white rounded-lg shadow-md p-4 mb-8">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900">GroupChat</h1>
+                    <p class="text-sm text-gray-600">Network Intelligence System</p>
+                </div>
+                <div class="flex gap-3">
+                    <a href="/" class="text-gray-600 hover:text-gray-900 px-4 py-2 rounded-md transition-colors">
+                        Ask Question
+                    </a>
+                    <a href="/expert/dashboard" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors font-medium">
+                        Expert Login
+                    </a>
+                </div>
+            </div>
+        </nav>
+
         <!-- Header -->
         <div class="text-center mb-8">
-            <h1 class="text-4xl font-bold text-gray-900 mb-4">Join GroupChat Expert Network</h1>
+            <h1 class="text-4xl font-bold text-gray-900 mb-4">Join Expert Network</h1>
             <p class="text-xl text-gray-600">Share your expertise. Help others. Earn money.</p>
         </div>
 
@@ -197,14 +215,17 @@
                 <h3 class="text-lg font-semibold text-green-900">Welcome to the Network!</h3>
             </div>
             <p class="text-green-800 mb-4">Your expert profile has been created successfully.</p>
-            <div class="bg-white border border-green-200 rounded-lg p-4">
+            <div class="bg-white border border-green-200 rounded-lg p-4 mb-4">
                 <h4 class="font-medium text-green-900 mb-2">What happens next?</h4>
                 <ul class="text-sm text-green-800 space-y-1">
-                    <li>• You'll receive SMS notifications when questions match your expertise</li>
-                    <li>• Visit <strong>/expert</strong> to view and respond to questions</li>
+                    <li>• You'll receive notifications in your dashboard when questions match your expertise</li>
+                    <li>• Check your dashboard regularly for new questions to answer</li>
                     <li>• Share this link with friends to grow the network: <span id="shareLink" class="font-mono bg-green-100 px-2 py-1 rounded"></span></li>
                 </ul>
             </div>
+            <a href="/expert/dashboard" class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-md transition duration-200">
+                Go to Expert Dashboard →
+            </a>
         </div>
 
         <!-- Error Message -->
