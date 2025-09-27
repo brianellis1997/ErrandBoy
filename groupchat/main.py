@@ -83,7 +83,7 @@ app = FastAPI(
     GET /api/v1/queries/{query_id}/answer
     ```
     """,
-    version="0.1.0-mvp",
+    version="0.1.1-mvp",
     contact={
         "name": "GroupChat Team",
         "url": "https://github.com/brianellis1997/ErrandBoy",

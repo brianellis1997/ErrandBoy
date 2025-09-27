@@ -100,30 +100,31 @@ async def debug_config():
 
 @router.post("/create-tables")
 async def create_tables():
-    """Create database tables"""
+    """Create database tables using minimal SQL schema"""
     try:
-        from groupchat.db.database import engine, Base
+        from groupchat.db.database import engine
         from sqlalchemy import text
+        import os
         
-        # Import all models to register them
-        import groupchat.db.models
+        # Read the minimal schema SQL file
+        sql_file_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "create_minimal_schema.sql")
         
-        messages = []
+        if not os.path.exists(sql_file_path):
+            return {"success": False, "error": "Schema SQL file not found"}
         
-        # First try to create pgvector extension in separate transaction
-        try:
-            async with engine.begin() as conn:
-                await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-            messages.append("pgvector extension created/verified")
-        except Exception as e:
-            messages.append(f"pgvector extension failed (continuing): {str(e)[:100]}")
+        with open(sql_file_path, 'r') as f:
+            schema_sql = f.read()
         
-        # Create all tables in separate transaction
+        # Execute the schema creation
         async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
+            # Split SQL into individual statements and execute them
+            statements = [stmt.strip() for stmt in schema_sql.split(';') if stmt.strip()]
+            
+            for stmt in statements:
+                if stmt.startswith('--') or not stmt:
+                    continue
+                await conn.execute(text(stmt))
         
-        messages.append("All tables created successfully")
-        
-        return {"success": True, "message": "; ".join(messages)}
+        return {"success": True, "message": "Minimal database schema created successfully"}
     except Exception as e:
         return {"success": False, "error": str(e)}
