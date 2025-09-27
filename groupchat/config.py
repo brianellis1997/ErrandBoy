@@ -13,13 +13,21 @@ class Settings(BaseSettings):
     )
 
     # Database
-    database_url: PostgresDsn = Field(
+    database_url: PostgresDsn | str = Field(
         default="postgresql+asyncpg://user:password@localhost:5432/groupchat"
     )
+    
+    @field_validator('database_url', mode='before')
+    @classmethod
+    def fix_database_url(cls, v):
+        """Convert postgresql:// to postgresql+asyncpg:// for Railway"""
+        if v and isinstance(v, str) and v.startswith("postgresql://"):
+            return v.replace("postgresql://", "postgresql+asyncpg://")
+        return v
 
     # Redis
     redis_url: RedisDsn | None = Field(
-        default="redis://localhost:6379/0"
+        default=None  # Disabled by default for Railway
     )
 
     # OpenAI
