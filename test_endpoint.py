@@ -103,24 +103,27 @@ async def create_tables():
     """Create database tables"""
     try:
         from groupchat.db.database import engine, Base
-        from groupchat.db.models import (
-            Contact, Query, Contribution, CompiledAnswer, Citation,
-            Ledger, ExpertNotificationPreferences, ResponseDraft
-        )
         from sqlalchemy import text
         
-        # Create all tables
-        async with engine.begin() as conn:
-            # First try to create pgvector extension
-            try:
+        # Import all models to register them
+        import groupchat.db.models
+        
+        messages = []
+        
+        # First try to create pgvector extension in separate transaction
+        try:
+            async with engine.begin() as conn:
                 await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-            except Exception as e:
-                # Ignore pgvector errors - continue without it
-                pass
-            
-            # Create all tables
+            messages.append("pgvector extension created/verified")
+        except Exception as e:
+            messages.append(f"pgvector extension failed (continuing): {str(e)[:100]}")
+        
+        # Create all tables in separate transaction
+        async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
         
-        return {"success": True, "message": "Database tables created successfully"}
+        messages.append("All tables created successfully")
+        
+        return {"success": True, "message": "; ".join(messages)}
     except Exception as e:
         return {"success": False, "error": str(e)}
