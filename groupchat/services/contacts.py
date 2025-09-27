@@ -50,17 +50,20 @@ class ContactService:
             extra_metadata=contact_data.extra_metadata,
         )
 
-        if (
-            contact_data.bio
-            and settings.enable_real_embeddings
-            and settings.openai_api_key
-        ):
+        # Skip embedding generation for MVP/demo - use mock embeddings
+        if False:  # Disabled for Railway deployment
             try:
                 embedding = await self._generate_embedding(contact_data.bio)
                 contact.expertise_embedding = embedding
                 contact.expertise_summary = contact_data.bio[:500]
             except Exception as e:
                 logger.warning(f"Failed to generate embedding: {e}")
+        else:
+            # Use mock embedding for demo purposes
+            if contact_data.bio:
+                contact.expertise_summary = contact_data.bio[:500]
+                # Mock embedding vector
+                contact.expertise_embedding = [0.1] * 1536  # OpenAI embedding size
 
         self.db.add(contact)
         await self.db.flush()
@@ -109,17 +112,20 @@ class ContactService:
 
         contact.updated_at = datetime.utcnow()
 
-        if (
-            update_data.bio
-            and settings.enable_real_embeddings
-            and settings.openai_api_key
-        ):
+        # Skip embedding generation for MVP/demo - use mock embeddings  
+        if False:  # Disabled for Railway deployment
             try:
                 embedding = await self._generate_embedding(update_data.bio)
                 contact.expertise_embedding = embedding
                 contact.expertise_summary = update_data.bio[:500]
             except Exception as e:
                 logger.warning(f"Failed to generate embedding: {e}")
+        else:
+            # Use mock embedding for demo purposes
+            if update_data.bio:
+                contact.expertise_summary = update_data.bio[:500]
+                # Mock embedding vector
+                contact.expertise_embedding = [0.1] * 1536  # OpenAI embedding size
 
         await self.db.flush()
         await self.db.refresh(contact)
