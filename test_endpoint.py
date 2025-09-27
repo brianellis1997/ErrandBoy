@@ -105,7 +105,7 @@ async def create_tables():
         from groupchat.db.database import engine, Base
         from groupchat.db.models import (
             Contact, Query, Contribution, CompiledAnswer, Citation,
-            LedgerEntry, ExpertNotification, ExpertResponse
+            Ledger, ExpertNotificationPreferences, ResponseDraft
         )
         from sqlalchemy import text
         
