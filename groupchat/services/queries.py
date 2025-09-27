@@ -55,7 +55,7 @@ class QueryService:
             id=uuid.uuid4(),
             user_phone=query_data.user_phone,
             question_text=query_data.question_text,
-            question_embedding=embedding,
+            # question_embedding=embedding,  # Disabled for MVP
             status=QueryStatus.PENDING,
             max_experts=query_data.max_experts,
             min_experts=query_data.min_experts,
