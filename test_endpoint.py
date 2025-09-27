@@ -104,16 +104,88 @@ async def create_tables():
     try:
         from groupchat.db.database import engine
         from sqlalchemy import text
-        import os
         
-        # Read the minimal schema SQL file
-        sql_file_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "create_minimal_schema.sql")
-        
-        if not os.path.exists(sql_file_path):
-            return {"success": False, "error": "Schema SQL file not found"}
-        
-        with open(sql_file_path, 'r') as f:
-            schema_sql = f.read()
+        # Minimal schema SQL - embedded directly
+        schema_sql = """
+        -- Core contacts table
+        CREATE TABLE IF NOT EXISTS contacts (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            phone_number VARCHAR(20) UNIQUE NOT NULL,
+            email VARCHAR(255) UNIQUE,
+            name VARCHAR(255) NOT NULL,
+            bio TEXT,
+            expertise_summary TEXT,
+            trust_score FLOAT DEFAULT 0.5 NOT NULL,
+            response_rate FLOAT DEFAULT 0.0 NOT NULL,
+            avg_response_time_minutes FLOAT,
+            total_contributions INTEGER DEFAULT 0 NOT NULL,
+            total_earnings_cents INTEGER DEFAULT 0 NOT NULL,
+            is_available BOOLEAN DEFAULT true NOT NULL,
+            max_queries_per_day INTEGER DEFAULT 3 NOT NULL,
+            preferred_contact_method VARCHAR(20) DEFAULT 'sms' NOT NULL,
+            status VARCHAR(20) DEFAULT 'active' NOT NULL,
+            extra_metadata JSONB DEFAULT '{}' NOT NULL,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+            deleted_at TIMESTAMP WITH TIME ZONE
+        );
+
+        -- Core queries table
+        CREATE TABLE IF NOT EXISTS queries (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_phone VARCHAR(20) NOT NULL,
+            question_text TEXT NOT NULL,
+            status VARCHAR(20) DEFAULT 'pending' NOT NULL,
+            max_spend_cents INTEGER DEFAULT 50 NOT NULL,
+            actual_spend_cents INTEGER DEFAULT 0 NOT NULL,
+            error_message TEXT,
+            extra_metadata JSONB DEFAULT '{}' NOT NULL,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+            deleted_at TIMESTAMP WITH TIME ZONE
+        );
+
+        -- Core contributions table
+        CREATE TABLE IF NOT EXISTS contributions (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            query_id UUID NOT NULL REFERENCES queries(id),
+            contact_id UUID REFERENCES contacts(id),
+            response_text TEXT NOT NULL,
+            confidence_score FLOAT DEFAULT 0.5 NOT NULL,
+            responded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            was_used BOOLEAN DEFAULT false NOT NULL,
+            relevance_score FLOAT,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+        );
+
+        -- Core compiled answers table
+        CREATE TABLE IF NOT EXISTS compiled_answers (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            query_id UUID NOT NULL REFERENCES queries(id),
+            final_answer TEXT NOT NULL,
+            summary TEXT,
+            confidence_score FLOAT DEFAULT 0.5 NOT NULL,
+            compilation_method VARCHAR(50) DEFAULT 'ai' NOT NULL,
+            compilation_prompt TEXT,
+            compilation_tokens_used INTEGER DEFAULT 0 NOT NULL,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+        );
+
+        -- Core citations table
+        CREATE TABLE IF NOT EXISTS citations (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            compiled_answer_id UUID NOT NULL REFERENCES compiled_answers(id),
+            contribution_id UUID NOT NULL REFERENCES contributions(id),
+            claim_text TEXT NOT NULL,
+            source_excerpt TEXT,
+            position_in_answer INTEGER DEFAULT 0 NOT NULL,
+            confidence FLOAT DEFAULT 0.5 NOT NULL,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+        );
+        """
         
         # Execute the schema creation
         async with engine.begin() as conn:
