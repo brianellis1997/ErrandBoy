@@ -1,5 +1,5 @@
 [deploy]
-startCommand = "uvicorn groupchat.main:app --host 0.0.0.0 --port $PORT"
+startCommand = "python start.py"
 
 [build]
 builder = "nixpacks"
