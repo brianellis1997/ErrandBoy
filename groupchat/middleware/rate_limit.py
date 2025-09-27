@@ -102,15 +102,20 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     
     async def _setup_redis(self):
         """Setup Redis connection if available"""
-        if settings.redis_url and not hasattr(self, '_redis_setup_attempted'):
-            self._redis_setup_attempted = True
-            try:
-                redis_client = redis.from_url(str(settings.redis_url))
-                await redis_client.ping()
-                self.redis_limiter = RedisRateLimiter(redis_client)
-                self._redis_available = True
-            except Exception:
-                self._redis_available = False
+        # Disable Redis for MVP deployment - use in-memory rate limiting only
+        self._redis_setup_attempted = True
+        self._redis_available = False
+        
+        # Original Redis setup code disabled:
+        # if settings.redis_url and not hasattr(self, '_redis_setup_attempted'):
+        #     self._redis_setup_attempted = True
+        #     try:
+        #         redis_client = redis.from_url(str(settings.redis_url))
+        #         await redis_client.ping()
+        #         self.redis_limiter = RedisRateLimiter(redis_client)
+        #         self._redis_available = True
+        #     except Exception:
+        #         self._redis_available = False
     
     def _get_client_id(self, request: Request) -> str:
         """Get client identifier for rate limiting"""
