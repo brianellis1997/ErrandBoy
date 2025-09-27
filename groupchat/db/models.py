@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from pgvector.sqlalchemy import Vector
+# from pgvector.sqlalchemy import Vector  # Temporarily disabled for Railway deployment
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
@@ -104,10 +104,10 @@ class Contact(Base, TimestampMixin, SoftDeleteMixin):
     bio: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Expertise and matching
-    expertise_embedding: Mapped[list[float] | None] = mapped_column(
-        Vector(1536),  # OpenAI embedding dimension
-        nullable=True
-    )
+    # expertise_embedding: Mapped[list[float] | None] = mapped_column(
+    #     Vector(1536),  # OpenAI embedding dimension
+    #     nullable=True
+    # )  # Temporarily disabled for Railway deployment
     expertise_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Trust and reputation
@@ -205,10 +205,10 @@ class Query(Base, TimestampMixin, SoftDeleteMixin):
     )
     user_phone: Mapped[str] = mapped_column(String(20), nullable=False)
     question_text: Mapped[str] = mapped_column(Text, nullable=False)
-    question_embedding: Mapped[list[float] | None] = mapped_column(
-        Vector(1536),
-        nullable=True
-    )
+    # question_embedding: Mapped[list[float] | None] = mapped_column(
+    #     Vector(1536),
+    #     nullable=True
+    # )  # Temporarily disabled for Railway deployment
 
     # Processing status
     status: Mapped[QueryStatus] = mapped_column(
