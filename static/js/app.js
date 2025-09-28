@@ -24,8 +24,12 @@ class QueryApp {
             try {
                 const expert = JSON.parse(expertData);
                 if (expert.phone_number) {
+                    // Update phone field
                     document.getElementById('phone').value = expert.phone_number;
                     document.getElementById('phone').disabled = true;
+                    
+                    // Update navigation to show logged in status
+                    this.updateNavigationForLoggedInExpert(expert);
                     
                     // Add info message
                     const phoneContainer = document.getElementById('phone').parentElement;
@@ -45,6 +49,27 @@ class QueryApp {
                 // Invalid data, clear it
                 sessionStorage.removeItem('expertData');
             }
+        }
+    }
+
+    /**
+     * Update navigation to show logged in expert
+     */
+    updateNavigationForLoggedInExpert(expert) {
+        // Find the navigation buttons container
+        const navButtons = document.querySelector('nav .flex.gap-3');
+        if (navButtons) {
+            navButtons.innerHTML = `
+                <span class="text-sm text-gray-600 px-3 py-2">
+                    Welcome, <strong>${expert.name || 'Expert'}</strong>
+                </span>
+                <a href="/expert/dashboard" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors font-medium">
+                    Dashboard
+                </a>
+                <button onclick="logoutExpert()" class="text-gray-600 hover:text-gray-900 px-4 py-2 rounded-md transition-colors">
+                    Logout
+                </button>
+            `;
         }
     }
 

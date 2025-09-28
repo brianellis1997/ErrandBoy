@@ -228,3 +228,43 @@ async def fix_queries_table():
         return {"success": True, "message": "Queries table updated successfully"}
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+@router.post("/test-query-creation")
+async def test_query_creation():
+    """Test query creation with minimal data"""
+    try:
+        from groupchat.db.database import engine
+        from sqlalchemy import text
+        import uuid
+        
+        # Test direct SQL insertion
+        query_id = str(uuid.uuid4())
+        insert_sql = """
+        INSERT INTO queries (
+            id, user_phone, question_text, status, 
+            max_experts, min_experts, timeout_minutes,
+            total_cost_cents, platform_fee_cents, context
+        ) VALUES (
+            :id, :user_phone, :question_text, :status,
+            :max_experts, :min_experts, :timeout_minutes,
+            :total_cost_cents, :platform_fee_cents, :context
+        )
+        """
+        
+        async with engine.begin() as conn:
+            await conn.execute(text(insert_sql), {
+                "id": query_id,
+                "user_phone": "+1555123456",
+                "question_text": "Test question for debugging",
+                "status": "pending",
+                "max_experts": 5,
+                "min_experts": 3,
+                "timeout_minutes": 30,
+                "total_cost_cents": 100,
+                "platform_fee_cents": 20,
+                "context": "{}"
+            })
+        
+        return {"success": True, "query_id": query_id, "message": "Query created successfully"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}

@@ -200,6 +200,8 @@
                     
                     if (response.expert) {
                         this.currentExpert = response.expert;
+                        // Store expert data in sessionStorage for cross-page access
+                        sessionStorage.setItem('expertData', JSON.stringify(response.expert));
                         this.showDashboard();
                         this.loadQuestions();
                     } else {
