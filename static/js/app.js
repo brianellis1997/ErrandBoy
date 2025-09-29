@@ -146,14 +146,14 @@ class QueryApp {
                 true  // Always live mode
             );
 
-            if (response.success && response.data?.query_id) {
-                this.currentQuery = response.data;
+            if (response && response.id) {
+                this.currentQuery = response;
                 this.showProgressSection();
                 
                 // Always show live mode started
-                this.showLiveModeStarted(response.data);
+                this.showLiveModeStarted(response);
             } else {
-                throw new Error(response.error || 'Failed to submit query');
+                throw new Error('Failed to submit query - invalid response');
             }
 
         } catch (error) {
@@ -328,24 +328,20 @@ class QueryApp {
         document.getElementById('progressPercent').textContent = '30%';
         document.getElementById('progressStatus').textContent = '🔴 Live Network Active';
         
-        if (smsCount > 0) {
-            document.getElementById('statusMessage').textContent = 
-                `SMS notifications sent to ${smsCount} experts in your network. Responses typically arrive within 5-30 minutes.`;
-        } else {
-            document.getElementById('statusMessage').textContent = 
-                `Query matched to ${expertsMatched} experts, but no SMS notifications were sent. Check your SMS configuration.`;
-        }
+        // For MVP, show generic message since we don't have SMS/matching data yet
+        document.getElementById('statusMessage').textContent = 
+            `Your question has been submitted to the expert network. We're processing your query and will match it with relevant experts.`;
         
         document.getElementById('timeEstimate').textContent = 'Estimated time: 5-30 minutes (live responses)';
         
         // Show query details
         document.getElementById('queryDetails').classList.remove('hidden');
-        document.getElementById('queryId').textContent = responseData.query_id;
+        document.getElementById('queryId').textContent = responseData.id || responseData.query_id;
         document.getElementById('expertsContacted').textContent = smsCount;
         document.getElementById('responsesReceived').textContent = '0';
         
         // Start tracking but with longer intervals for live mode
-        this.startStatusTracking(responseData.query_id, true);
+        this.startStatusTracking(responseData.id || responseData.query_id, true);
     }
 
     /**
