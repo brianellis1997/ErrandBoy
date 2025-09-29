@@ -211,34 +211,39 @@ async def fix_queries_table():
         from groupchat.db.database import engine
         from sqlalchemy import text
         
-        # Create enum type and fix status column
-        fix_status_sql = """
-        -- Create QueryStatus enum if it doesn't exist
-        DO $$ BEGIN
-            CREATE TYPE querystatus AS ENUM ('pending', 'routing', 'collecting', 'compiling', 'completed', 'failed', 'cancelled');
-        EXCEPTION
-            WHEN duplicate_object THEN null;
-        END $$;
-        
-        -- Create ContactStatus enum if it doesn't exist
-        DO $$ BEGIN
-            CREATE TYPE contactstatus AS ENUM ('active', 'inactive', 'pending', 'suspended');
-        EXCEPTION
-            WHEN duplicate_object THEN null;
-        END $$;
-        
-        -- Alter the status columns to use the enums
-        ALTER TABLE queries 
-        ALTER COLUMN status TYPE querystatus 
-        USING status::querystatus;
-        
-        ALTER TABLE contacts
-        ALTER COLUMN status TYPE contactstatus
-        USING status::contactstatus;
-        """
-        
+        # Create enum types and fix status columns
         async with engine.begin() as conn:
-            await conn.execute(text(fix_status_sql))
+            # Create QueryStatus enum
+            await conn.execute(text("""
+                DO $$ BEGIN
+                    CREATE TYPE querystatus AS ENUM ('pending', 'routing', 'collecting', 'compiling', 'completed', 'failed', 'cancelled');
+                EXCEPTION
+                    WHEN duplicate_object THEN null;
+                END $$;
+            """))
+            
+            # Create ContactStatus enum  
+            await conn.execute(text("""
+                DO $$ BEGIN
+                    CREATE TYPE contactstatus AS ENUM ('active', 'inactive', 'pending', 'suspended');
+                EXCEPTION
+                    WHEN duplicate_object THEN null;
+                END $$;
+            """))
+            
+            # Fix queries status column
+            await conn.execute(text("""
+                ALTER TABLE queries 
+                ALTER COLUMN status TYPE querystatus 
+                USING status::querystatus;
+            """))
+            
+            # Fix contacts status column
+            await conn.execute(text("""
+                ALTER TABLE contacts
+                ALTER COLUMN status TYPE contactstatus
+                USING status::contactstatus;
+            """))
         
         return {"success": True, "message": "Queries table status fixed to use enum"}
     except Exception as e:
