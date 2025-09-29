@@ -288,3 +288,35 @@ async def test_query_creation():
         return {"success": True, "query_id": query_id, "message": "Query created successfully"}
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+@router.post("/debug-query-service")
+async def debug_query_service(db: AsyncSession = Depends(get_db)):
+    """Debug the QueryService step by step"""
+    try:
+        from groupchat.services.queries import QueryService
+        from groupchat.schemas.queries import QueryCreate
+        
+        # Test QueryService creation
+        service = QueryService(db)
+        
+        # Test QueryCreate schema
+        query_data = QueryCreate(
+            user_phone="+1555123456",
+            question_text="Test question for debugging",
+            max_spend_cents=100
+        )
+        
+        return {
+            "success": True, 
+            "service_created": True,
+            "schema_created": True,
+            "query_data": {
+                "user_phone": query_data.user_phone,
+                "question_text": query_data.question_text,
+                "max_spend_cents": query_data.max_spend_cents,
+                "max_experts": query_data.max_experts,
+                "min_experts": query_data.min_experts
+            }
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e), "error_type": type(e).__name__}

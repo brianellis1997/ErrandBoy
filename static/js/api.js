@@ -54,13 +54,12 @@ class APIClient {
      * Submit a new query
      */
     async submitQuery(userPhone, questionText, maxSpendCents, liveMode = false) {
-        return this.request('agent/enhanced-process-query', {
+        return this.request('queries/', {
             method: 'POST',
             body: JSON.stringify({
                 user_phone: userPhone,
                 question_text: questionText,
-                max_spend_cents: maxSpendCents,
-                live_mode: liveMode
+                max_spend_cents: maxSpendCents
             })
         });
     }
