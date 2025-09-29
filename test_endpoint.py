@@ -206,26 +206,41 @@ async def create_tables():
 
 @router.post("/fix-queries-table")
 async def fix_queries_table():
-    """Add missing columns to queries table"""
+    """Fix queries table status column to use enum"""
     try:
         from groupchat.db.database import engine
         from sqlalchemy import text
         
-        # Add missing columns to queries table
-        alter_queries_sql = """
+        # Create enum type and fix status column
+        fix_status_sql = """
+        -- Create QueryStatus enum if it doesn't exist
+        DO $$ BEGIN
+            CREATE TYPE querystatus AS ENUM ('pending', 'routing', 'collecting', 'compiling', 'completed', 'failed', 'cancelled');
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END $$;
+        
+        -- Create ContactStatus enum if it doesn't exist
+        DO $$ BEGIN
+            CREATE TYPE contactstatus AS ENUM ('active', 'inactive', 'pending', 'suspended');
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END $$;
+        
+        -- Alter the status columns to use the enums
         ALTER TABLE queries 
-        ADD COLUMN IF NOT EXISTS max_experts INTEGER DEFAULT 5,
-        ADD COLUMN IF NOT EXISTS min_experts INTEGER DEFAULT 3,
-        ADD COLUMN IF NOT EXISTS timeout_minutes INTEGER DEFAULT 30,
-        ADD COLUMN IF NOT EXISTS total_cost_cents INTEGER DEFAULT 0,
-        ADD COLUMN IF NOT EXISTS platform_fee_cents INTEGER DEFAULT 0,
-        ADD COLUMN IF NOT EXISTS context JSONB DEFAULT '{}';
+        ALTER COLUMN status TYPE querystatus 
+        USING status::querystatus;
+        
+        ALTER TABLE contacts
+        ALTER COLUMN status TYPE contactstatus
+        USING status::contactstatus;
         """
         
         async with engine.begin() as conn:
-            await conn.execute(text(alter_queries_sql))
+            await conn.execute(text(fix_status_sql))
         
-        return {"success": True, "message": "Queries table updated successfully"}
+        return {"success": True, "message": "Queries table status fixed to use enum"}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
