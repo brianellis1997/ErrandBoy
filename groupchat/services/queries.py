@@ -44,8 +44,9 @@ class QueryService:
                 f"for {query_data.min_experts} experts"
             )
 
-        # Generate embedding (mock for now)
-        embedding = await self._generate_embedding(query_data.question_text)
+        # Generate embedding (disabled for MVP)
+        # embedding = await self._generate_embedding(query_data.question_text)
+        embedding = None
 
         # Calculate platform fee
         platform_fee = int(query_data.max_spend_cents * settings.platform_percentage)
