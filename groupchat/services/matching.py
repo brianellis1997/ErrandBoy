@@ -120,18 +120,24 @@ class ExpertMatchingService:
 
     async def _get_candidate_experts(self) -> list[Contact]:
         """Get all potentially matchable experts"""
-        stmt = (
-            select(Contact)
-            .options(
-                selectinload(Contact.expertise_tags),
-                selectinload(Contact.contributions)
+        try:
+            stmt = (
+                select(Contact)
+                .options(
+                    selectinload(Contact.expertise_tags),
+                    selectinload(Contact.contributions)
+                )
+                .where(Contact.deleted_at.is_(None))
+                .where(Contact.status == ContactStatus.ACTIVE)
             )
-            .where(Contact.deleted_at.is_(None))
-            .where(Contact.status == ContactStatus.ACTIVE)
-        )
-        
-        result = await self.db.execute(stmt)
-        return list(result.scalars().all())
+            
+            result = await self.db.execute(stmt)
+            candidates = list(result.scalars().all())
+            logger.info(f"Found {len(candidates)} candidate experts")
+            return candidates
+        except Exception as e:
+            logger.error(f"Error getting candidate experts: {e}")
+            return []
 
     async def _filter_available_experts(self, candidates: list[Contact]) -> list[Contact]:
         """Filter experts by availability status"""

@@ -365,9 +365,9 @@ class QueryService:
                 await self._create_contribution_requests(query, matching_result.matches[:5])
             else:
                 logger.warning(f"No experts matched for query {query.id}")
-                # No experts found - leave in ROUTING status
+                # No experts found - mark as failed with helpful message
                 query.status = QueryStatus.FAILED
-                query.error_message = "No experts found who can answer this question"
+                query.error_message = "No experts found who can answer this question. Invite more experts to join the network!"
                 await self.db.commit()
                 
         except Exception as e:

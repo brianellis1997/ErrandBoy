@@ -366,6 +366,12 @@ class QueryApp {
     handleStatusUpdate(status) {
         const progress = this.getProgressFromStatus(status);
         
+        // Check if query failed
+        if (status.status?.toLowerCase() === 'failed') {
+            this.showError(status.error_message || 'Query failed: No experts found who can answer this question. Try inviting more experts to join the network!');
+            return;
+        }
+        
         document.getElementById('progressBar').style.width = `${progress.percent}%`;
         document.getElementById('progressPercent').textContent = `${progress.percent}%`;
         document.getElementById('progressStatus').textContent = progress.message;
@@ -435,6 +441,12 @@ class QueryApp {
                 message: 'Complete!',
                 description: 'Your answer is ready with expert citations.',
                 timeEstimate: 'Done!'
+            },
+            'failed': {
+                percent: 0,
+                message: 'Query Failed',
+                description: 'No experts found who can answer this question.',
+                timeEstimate: 'Try asking a different question or invite more experts!'
             }
         };
 
