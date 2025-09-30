@@ -158,8 +158,18 @@ class SynthesisService:
                 used_handles.add(handle)
                 handle_mapping[handle] = (contribution, contact)
             else:
-                # Anonymous contributor
-                handle = f"anon{len(handle_mapping) + 1}"
+                # Mock contributor - use expert name from metadata if available
+                expert_name = contribution.extra_metadata.get("expert_name", f"Expert{len(handle_mapping) + 1}")
+                base_handle = self._create_handle_from_name(expert_name)
+                handle = base_handle
+                counter = 1
+                
+                # Ensure uniqueness
+                while handle in used_handles:
+                    handle = f"{base_handle}{counter}"
+                    counter += 1
+                
+                used_handles.add(handle)
                 handle_mapping[handle] = (contribution, None)
 
         return handle_mapping
@@ -239,9 +249,16 @@ but concise."""
         """Call OpenAI GPT-4 for answer synthesis"""
 
         if not self.openai_client:
-            # Fallback to mock synthesis if no API key
-            logger.warning("No OpenAI API key configured, using mock synthesis")
-            return self._mock_synthesis_response(prompt)
+            # Re-enable OpenAI client if API key is available
+            if settings.openai_api_key:
+                try:
+                    self.openai_client = AsyncOpenAI(api_key=settings.openai_api_key)
+                    logger.info("OpenAI client initialized for synthesis")
+                except Exception as e:
+                    logger.error(f"Failed to initialize OpenAI client: {e}")
+                    raise ValueError("Cannot synthesize answer: OpenAI API not configured")
+            else:
+                raise ValueError("Cannot synthesize answer: OpenAI API key not configured")
 
         try:
             response = await self.openai_client.chat.completions.create(
@@ -272,8 +289,7 @@ but concise."""
 
         except Exception as e:
             logger.error(f"Error calling OpenAI API: {e}")
-            # Fallback to mock response
-            return self._mock_synthesis_response(prompt)
+            raise ValueError(f"Failed to synthesize answer: {str(e)}")
 
     def _mock_synthesis_response(self, prompt: str) -> dict[str, Any]:
         """Generate a mock synthesis response for testing"""
@@ -282,32 +298,53 @@ but concise."""
         handles = re.findall(r'\[@(\w+)\]', prompt)
 
         if not handles:
-            handles = ["expert1", "expert2"]
+            handles = ["expert1", "expert2", "expert3"]
 
-        # Create a mock answer using the handles
+        # Extract the question from the prompt for better context
+        question_match = re.search(r'User Question:\s*"([^"]*)"', prompt)
+        question = question_match.group(1) if question_match else "your question"
+
+        # Create a contextual mock answer using the handles
         mock_citations = ' '.join(f'[@{h}]' for h in handles[:3])
 
-        answer_parts = [
-            f"Based on the expert contributions {mock_citations}, "
-            "the answer to your question involves multiple factors.",
-            f"The primary consideration mentioned by [@{handles[0]}] is "
-            "the importance of the topic at hand.",
-            f"Additionally, [@{handles[-1]}] provides valuable context that "
-            "helps understand the broader implications.",
-            "Taking all expert opinions into account, the consensus suggests "
-            "a comprehensive approach is needed."
-        ]
+        # Generate more relevant content based on the question
+        if any(word in question.lower() for word in ['test', 'testing', 'qa']):
+            answer_parts = [
+                f"Based on expert analysis {mock_citations}, here's a comprehensive testing approach:",
+                f"[@{handles[0]}] emphasizes the importance of implementing multiple testing layers including unit, integration, and end-to-end testing.",
+                f"[@{handles[1] if len(handles) > 1 else handles[0]}] recommends establishing automated CI/CD pipelines for consistent quality assurance.",
+                f"[@{handles[2] if len(handles) > 2 else handles[0]}] suggests focusing on critical user paths and edge cases for maximum coverage.",
+                "The consensus among experts is that a multi-layered testing strategy provides the best foundation for reliable software."
+            ]
+            summary = "Expert consensus recommends comprehensive testing with multiple layers and automation."
+        elif any(word in question.lower() for word in ['design', 'ui', 'ux']):
+            answer_parts = [
+                f"Drawing from expert insights {mock_citations}, here's the recommended design approach:",
+                f"[@{handles[0]}] advocates for user-centered design principles, starting with thorough user research and persona development.",
+                f"[@{handles[1] if len(handles) > 1 else handles[0]}] emphasizes the importance of accessibility and inclusive design practices.",
+                f"[@{handles[2] if len(handles) > 2 else handles[0]}] recommends implementing design systems for consistency and scalability.",
+                "The expert consensus points toward a holistic design process that prioritizes user needs while maintaining technical feasibility."
+            ]
+            summary = "Experts recommend user-centered design with accessibility and systematic consistency."
+        else:
+            answer_parts = [
+                f"Based on expert contributions {mock_citations}, here's a comprehensive response to your question:",
+                f"[@{handles[0]}] provides foundational insights that establish the key principles for addressing this topic.",
+                f"[@{handles[1] if len(handles) > 1 else handles[0]}] offers practical considerations that enhance understanding of the implementation aspects.",
+                f"[@{handles[2] if len(handles) > 2 else handles[0]}] contributes valuable context that helps navigate the broader implications.",
+                "The collective expert wisdom suggests a balanced approach that considers both immediate needs and long-term implications."
+            ]
+            summary = "Expert consensus indicates a comprehensive, balanced approach is most effective."
         
         return {
             "answer": " ".join(answer_parts),
-            "summary": "Expert consensus indicates a multi-faceted solution "
-                      "is required.",
-            "confidence": 0.75,
+            "summary": summary,
+            "confidence": 0.82,
             "key_insights": [
-                "Multiple perspectives contribute to understanding",
-                "Expert agreement on core principles"
+                "Multiple expert perspectives provide comprehensive coverage",
+                "Consensus emerges on core principles and best practices"
             ],
-            "tokens_used": 150
+            "tokens_used": 185
         }
 
     def _extract_citations(

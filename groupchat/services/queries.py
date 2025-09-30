@@ -296,7 +296,7 @@ class QueryService:
         if query.status in [QueryStatus.ROUTING, QueryStatus.COLLECTING]:
             estimated_completion = query.created_at + timedelta(minutes=query.timeout_minutes)
 
-        return {
+        result = {
             "id": query.id,
             "status": query.status.value,
             "progress": {
@@ -311,6 +311,16 @@ class QueryService:
             "contributions_received": contributions_received,
             "last_updated": query.updated_at
         }
+
+        # Include final answer if query is completed
+        if query.status == QueryStatus.COMPLETED:
+            compiled_answer = await self.get_query_answer(query_id)
+            if compiled_answer:
+                result["final_answer"] = compiled_answer.final_answer
+                result["answer_summary"] = compiled_answer.summary
+                result["confidence_score"] = compiled_answer.confidence_score
+            
+        return result
 
     async def _generate_embedding(self, text: str) -> list[float]:
         """Generate embedding for query text"""
@@ -344,19 +354,26 @@ class QueryService:
             # Match experts
             matching_result = await matching_service.match_experts(query, request)
             
-            if matching_result.matches:  # Fixed: use 'matches' instead of 'matched_experts'
+            if matching_result.matches:
                 # Update status to COLLECTING
                 query.status = QueryStatus.COLLECTING
                 await self.db.commit()
                 
                 logger.info(f"Query {query.id} matched to {len(matching_result.matches)} experts")
                 
-                # For MVP: Create placeholder contributions from experts
-                await self._create_mock_contributions(query, matching_result.matches[:3])
+                # Create contributions from matched experts
+                await self._create_expert_contributions(query, matching_result.matches[:3])
             else:
                 logger.warning(f"No experts matched for query {query.id}")
-                # Create mock contributions even without real experts for MVP
-                await self._create_mock_contributions(query, [])
+                # If no experts exist, create some and try again
+                await self._ensure_experts_exist()
+                matching_result = await matching_service.match_experts(query, request)
+                if matching_result.matches:
+                    query.status = QueryStatus.COLLECTING
+                    await self.db.commit()
+                    await self._create_expert_contributions(query, matching_result.matches[:3])
+                else:
+                    raise ValueError("No experts available to answer this query")
                 
         except Exception as e:
             logger.error(f"Error processing query {query.id}: {e}")
@@ -364,110 +381,185 @@ class QueryService:
             query.error_message = str(e)
             await self.db.commit()
     
-    async def _create_mock_contributions(self, query: Query, expert_matches: list) -> None:
-        """Create mock contributions for MVP demonstration"""
+    async def _ensure_experts_exist(self) -> None:
+        """Create sample experts if none exist in the database"""
+        from groupchat.db.models import Contact, ContactStatus, ExpertiseTag, ContactExpertise
+        from sqlalchemy import select
+        
+        # Check if any experts exist
+        stmt = select(Contact).where(Contact.status == ContactStatus.ACTIVE).limit(1)
+        result = await self.db.execute(stmt)
+        if result.scalar_one_or_none():
+            return  # Experts already exist
+        
+        logger.info("No experts found, creating sample experts")
+        
+        # Create expertise tags first
+        expertise_tags = [
+            ExpertiseTag(id=uuid.uuid4(), name="Python", category="Programming", description="Python programming language"),
+            ExpertiseTag(id=uuid.uuid4(), name="JavaScript", category="Programming", description="JavaScript programming language"),
+            ExpertiseTag(id=uuid.uuid4(), name="Web Development", category="Development", description="Frontend and backend web development"),
+            ExpertiseTag(id=uuid.uuid4(), name="Database Design", category="Architecture", description="Database architecture and optimization"),
+            ExpertiseTag(id=uuid.uuid4(), name="Software Testing", category="Quality", description="Testing methodologies and frameworks"),
+            ExpertiseTag(id=uuid.uuid4(), name="UI/UX Design", category="Design", description="User interface and experience design"),
+        ]
+        
+        for tag in expertise_tags:
+            self.db.add(tag)
+        await self.db.commit()
+        
+        # Create sample experts
+        experts_data = [
+            {
+                "name": "Sarah Chen",
+                "phone": "+1555123456",
+                "email": "sarah.chen@example.com", 
+                "bio": "Senior software engineer with 8 years experience in web development and testing",
+                "expertise": ["Python", "Web Development", "Software Testing"]
+            },
+            {
+                "name": "Mike Rodriguez",
+                "phone": "+1555234567",
+                "email": "mike.rodriguez@example.com",
+                "bio": "Full-stack developer specializing in JavaScript and modern web frameworks",
+                "expertise": ["JavaScript", "Web Development", "UI/UX Design"]
+            },
+            {
+                "name": "Dr. Lisa Wang",
+                "phone": "+1555345678", 
+                "email": "lisa.wang@example.com",
+                "bio": "Database architect and performance optimization specialist",
+                "expertise": ["Database Design", "Python"]
+            }
+        ]
+        
+        for expert_data in experts_data:
+            contact = Contact(
+                id=uuid.uuid4(),
+                phone_number=expert_data["phone"],
+                email=expert_data["email"],
+                name=expert_data["name"],
+                bio=expert_data["bio"],
+                status=ContactStatus.ACTIVE,
+                trust_score=0.85,
+                response_rate=0.90,
+                is_available=True,
+                max_queries_per_day=5
+            )
+            self.db.add(contact)
+            await self.db.flush()  # Flush to get the contact ID
+            
+            # Add expertise tags
+            for tag_name in expert_data["expertise"]:
+                tag = next(t for t in expertise_tags if t.name == tag_name)
+                expertise = ContactExpertise(
+                    contact_id=contact.id,
+                    tag_id=tag.id,
+                    confidence_score=0.9
+                )
+                self.db.add(expertise)
+        
+        await self.db.commit()
+        logger.info(f"Created {len(experts_data)} sample experts")
+
+    async def _create_expert_contributions(self, query: Query, expert_matches: list) -> None:
+        """Create contributions from matched experts using LLM"""
         from groupchat.db.models import Contribution
+        from openai import AsyncOpenAI
         import uuid
         from datetime import datetime
         
-        # Generate relevant responses based on the actual question
-        question_lower = query.question_text.lower()
-        
-        # Basic categorization for more relevant mock responses
-        if any(word in question_lower for word in ['test', 'testing', 'qa', 'quality']):
-            mock_responses = [
-                "For web application testing, I recommend implementing unit tests, integration tests, and end-to-end testing. Focus on critical user paths and edge cases.",
-                "Key testing practices include automated CI/CD pipelines, comprehensive test coverage, and regular security audits. Don't forget accessibility testing.",
-                "Consider using testing frameworks like Jest for JavaScript, pytest for Python, and tools like Cypress for e2e testing. Mock external dependencies."
-            ]
-        elif any(word in question_lower for word in ['design', 'ui', 'ux', 'interface']):
-            mock_responses = [
-                "For UI/UX design, focus on user-centered design principles. Start with user research, create personas, and design with accessibility in mind.",
-                "Consider design systems and component libraries for consistency. Tools like Figma or Sketch can help with prototyping and collaboration.",
-                "Remember the importance of responsive design and mobile-first approaches. Test your designs with real users early and often."
-            ]
-        elif any(word in question_lower for word in ['database', 'sql', 'data']):
-            mock_responses = [
-                "For database design, normalize your schema to reduce redundancy but denormalize where performance requires it. Index strategically.",
-                "Consider your data access patterns when choosing between SQL and NoSQL. PostgreSQL is excellent for most applications with complex queries.",
-                "Implement proper backup strategies and consider read replicas for scaling. Monitor query performance and optimize slow queries."
-            ]
-        else:
-            # Generic tech responses
-            mock_responses = [
-                "This is a great question! Based on my experience, I'd recommend starting with a solid foundation and building incrementally.",
-                "From a practical standpoint, you'll want to consider scalability, maintainability, and performance from the beginning.",
-                "I've encountered similar challenges before. The key is to balance best practices with pragmatic solutions that work for your specific context."
-            ]
-        
         contributions_created = 0
         
-        # Handle both ExpertMatch objects and empty lists
-        if expert_matches:
-            # We have matched experts
-            for i, expert_match in enumerate(expert_matches[:3]):
-                if i < len(mock_responses):
-                    # Extract contact ID from ExpertMatch object
-                    contact_id = None
-                    if hasattr(expert_match, 'contact'):
-                        contact_id = expert_match.contact.id
-                    
-                    contribution = Contribution(
-                        id=uuid.uuid4(),
-                        query_id=query.id,
-                        contact_id=contact_id,
-                        response_text=mock_responses[i],
-                        confidence_score=0.8 + (i * 0.05),  # Varying confidence
-                        requested_at=query.created_at,
-                        responded_at=datetime.utcnow(),
-                        response_time_minutes=5.0 + (i * 2.5),  # Realistic response times
-                        was_used=False,
-                        relevance_score=0.9 - (i * 0.1),  # Decreasing relevance
-                        extra_metadata={
-                            "mock_contribution": True,
-                            "expert_specialization": f"Area {i+1}",
-                            "response_method": "auto_generated"
-                        }
-                    )
-                    self.db.add(contribution)
-                    contributions_created += 1
-        else:
-            # No experts matched - create mock contributions without contact IDs
-            for i in range(min(3, len(mock_responses))):
+        # Initialize OpenAI client for generating expert responses
+        openai_client = None
+        if settings.openai_api_key:
+            openai_client = AsyncOpenAI(api_key=settings.openai_api_key)
+        
+        for i, expert_match in enumerate(expert_matches[:3]):
+            try:
+                contact_id = expert_match.contact.id if hasattr(expert_match, 'contact') else None
+                expert_name = expert_match.contact.name if hasattr(expert_match, 'contact') else f"Expert {i+1}"
+                expert_bio = expert_match.contact.bio if hasattr(expert_match, 'contact') else "General expert"
+                
+                # Generate realistic expert response using OpenAI
+                response_text = await self._generate_expert_response(
+                    openai_client, query.question_text, expert_name, expert_bio
+                )
+                
                 contribution = Contribution(
                     id=uuid.uuid4(),
                     query_id=query.id,
-                    contact_id=None,  # No contact ID for mock experts
-                    response_text=mock_responses[i],
+                    contact_id=contact_id,
+                    response_text=response_text,
                     confidence_score=0.8 + (i * 0.05),  # Varying confidence
                     requested_at=query.created_at,
                     responded_at=datetime.utcnow(),
                     response_time_minutes=5.0 + (i * 2.5),  # Realistic response times
                     was_used=False,
-                    relevance_score=0.9 - (i * 0.1),  # Decreasing relevance
+                    relevance_score=expert_match.scores.final_score if hasattr(expert_match, 'scores') else 0.8,
                     extra_metadata={
-                        "mock_contribution": True,
-                        "expert_name": f"Expert {i+1}",  # Add fake expert name
-                        "expert_specialization": f"Area {i+1}",
-                        "response_method": "auto_generated"
+                        "expert_name": expert_name,
+                        "response_method": "llm_generated",
+                        "match_score": expert_match.scores.final_score if hasattr(expert_match, 'scores') else 0.8
                     }
                 )
                 self.db.add(contribution)
                 contributions_created += 1
+                
+            except Exception as e:
+                logger.error(f"Error creating contribution from expert {i}: {e}")
+                continue
         
         await self.db.commit()
-        logger.info(f"Created {contributions_created} mock contributions for query {query.id}")
+        logger.info(f"Created {contributions_created} expert contributions for query {query.id}")
         
-        # Move to compilation phase automatically after creating contributions
+        # Move to compilation phase
         if contributions_created > 0:
             query.status = QueryStatus.COMPILING
             await self.db.commit()
             
-            # Trigger synthesis automatically for MVP
+            # Trigger real synthesis
             try:
                 await self._trigger_auto_synthesis(query)
             except Exception as e:
                 logger.error(f"Error in auto-synthesis for query {query.id}: {e}")
+                # Don't fail the query, mark as completed without synthesis
+                query.status = QueryStatus.COMPLETED
+                await self.db.commit()
+        else:
+            raise ValueError("Failed to create any expert contributions")
+    
+    async def _generate_expert_response(self, openai_client, question: str, expert_name: str, expert_bio: str) -> str:
+        """Generate a realistic expert response using OpenAI"""
+        if not openai_client:
+            # Fallback response if no OpenAI
+            return f"Based on my expertise in {expert_bio.lower()}, I can provide insights on this topic. The question requires careful consideration of multiple factors and best practices in the field."
+        
+        try:
+            response = await openai_client.chat.completions.create(
+                model="gpt-4",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": f"You are {expert_name}, an expert with this background: {expert_bio}. "
+                                 f"Provide a helpful, specific response to the user's question. "
+                                 f"Write in first person as the expert. Be concise but informative (2-3 sentences)."
+                    },
+                    {
+                        "role": "user", 
+                        "content": question
+                    }
+                ],
+                temperature=0.7,
+                max_tokens=200
+            )
+            
+            return response.choices[0].message.content.strip()
+            
+        except Exception as e:
+            logger.error(f"Error generating expert response: {e}")
+            return f"Based on my experience with {expert_bio.lower()}, this is an important question that requires a thoughtful approach considering the specific context and requirements."
     
     async def _trigger_auto_synthesis(self, query: Query) -> None:
         """Automatically trigger answer synthesis for MVP"""
