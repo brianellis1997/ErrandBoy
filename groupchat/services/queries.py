@@ -334,27 +334,29 @@ class QueryService:
             
             matching_service = ExpertMatchingService(self.db)
             request = MatchingRequest(
-                max_experts=query.max_experts,
-                min_experts=query.min_experts,
-                geographic_bias=0.1,  # Small geographic preference
-                diversity_factor=0.2,  # Some diversity in responses
-                budget_cents=query.total_cost_cents
+                query_id=query.id,  # Add required query_id
+                limit=query.max_experts,
+                location_boost=False,  # Disable for MVP
+                exclude_recent=False,  # Disable for MVP
+                wave_size=3
             )
             
             # Match experts
             matching_result = await matching_service.match_experts(query, request)
             
-            if matching_result.matched_experts:
+            if matching_result.matches:  # Fixed: use 'matches' instead of 'matched_experts'
                 # Update status to COLLECTING
                 query.status = QueryStatus.COLLECTING
                 await self.db.commit()
                 
-                logger.info(f"Query {query.id} matched to {len(matching_result.matched_experts)} experts")
+                logger.info(f"Query {query.id} matched to {len(matching_result.matches)} experts")
                 
                 # For MVP: Create placeholder contributions from experts
-                await self._create_mock_contributions(query, matching_result.matched_experts[:3])
+                await self._create_mock_contributions(query, matching_result.matches[:3])
             else:
                 logger.warning(f"No experts matched for query {query.id}")
+                # Create mock contributions even without real experts for MVP
+                await self._create_mock_contributions(query, [])
                 
         except Exception as e:
             logger.error(f"Error processing query {query.id}: {e}")
@@ -362,7 +364,7 @@ class QueryService:
             query.error_message = str(e)
             await self.db.commit()
     
-    async def _create_mock_contributions(self, query: Query, experts: list) -> None:
+    async def _create_mock_contributions(self, query: Query, expert_matches: list) -> None:
         """Create mock contributions for MVP demonstration"""
         from groupchat.db.models import Contribution
         import uuid
@@ -399,19 +401,43 @@ class QueryService:
             ]
         
         contributions_created = 0
-        for i, expert in enumerate(experts[:3]):
-            if i < len(mock_responses):
-                # Extract contact ID properly
-                contact_id = None
-                if hasattr(expert, 'contact') and expert.contact:
-                    contact_id = expert.contact.id
-                elif hasattr(expert, 'id'):
-                    contact_id = expert.id
-                
+        
+        # Handle both ExpertMatch objects and empty lists
+        if expert_matches:
+            # We have matched experts
+            for i, expert_match in enumerate(expert_matches[:3]):
+                if i < len(mock_responses):
+                    # Extract contact ID from ExpertMatch object
+                    contact_id = None
+                    if hasattr(expert_match, 'contact'):
+                        contact_id = expert_match.contact.id
+                    
+                    contribution = Contribution(
+                        id=uuid.uuid4(),
+                        query_id=query.id,
+                        contact_id=contact_id,
+                        response_text=mock_responses[i],
+                        confidence_score=0.8 + (i * 0.05),  # Varying confidence
+                        requested_at=query.created_at,
+                        responded_at=datetime.utcnow(),
+                        response_time_minutes=5.0 + (i * 2.5),  # Realistic response times
+                        was_used=False,
+                        relevance_score=0.9 - (i * 0.1),  # Decreasing relevance
+                        extra_metadata={
+                            "mock_contribution": True,
+                            "expert_specialization": f"Area {i+1}",
+                            "response_method": "auto_generated"
+                        }
+                    )
+                    self.db.add(contribution)
+                    contributions_created += 1
+        else:
+            # No experts matched - create mock contributions without contact IDs
+            for i in range(min(3, len(mock_responses))):
                 contribution = Contribution(
                     id=uuid.uuid4(),
                     query_id=query.id,
-                    contact_id=contact_id,
+                    contact_id=None,  # No contact ID for mock experts
                     response_text=mock_responses[i],
                     confidence_score=0.8 + (i * 0.05),  # Varying confidence
                     requested_at=query.created_at,
@@ -421,6 +447,7 @@ class QueryService:
                     relevance_score=0.9 - (i * 0.1),  # Decreasing relevance
                     extra_metadata={
                         "mock_contribution": True,
+                        "expert_name": f"Expert {i+1}",  # Add fake expert name
                         "expert_specialization": f"Area {i+1}",
                         "response_method": "auto_generated"
                     }
