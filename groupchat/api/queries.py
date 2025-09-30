@@ -426,3 +426,39 @@ async def submit_contribution(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
         )
+
+
+@router.put("/contributions/{contribution_id}", response_model=ContributionResponse)
+async def update_contribution(
+    contribution_id: UUID,
+    contribution_data: ContributionCreate,
+    db: AsyncSession = Depends(get_db),
+) -> ContributionResponse:
+    """Update an existing contribution with expert's response"""
+    try:
+        service = QueryService(db)
+        contribution = await service.update_contribution(contribution_id, contribution_data)
+        
+        if not contribution:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Contribution not found"
+            )
+            
+        # Check if query is ready for synthesis after this response
+        await service.check_and_synthesize_if_ready(contribution.query_id)
+            
+        return ContributionResponse.model_validate(contribution)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating contribution {contribution_id}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error"
+        )

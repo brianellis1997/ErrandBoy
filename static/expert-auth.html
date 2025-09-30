@@ -258,15 +258,16 @@
 
             async loadQuestions() {
                 try {
-                    // Get questions for this expert
-                    const response = await this.apiClient.request(`expert/questions/${this.currentExpert.id}`, {
+                    // Get pending questions for this expert
+                    const response = await this.apiClient.request(`contacts/${this.currentExpert.id}/pending-questions`, {
                         method: 'GET'
                     });
                     
-                    this.displayQuestions(response.questions || []);
+                    this.displayQuestions(response.pending_questions || []);
                     
                 } catch (error) {
                     console.error('Failed to load questions:', error);
+                    this.displayQuestions([]);
                 }
             }
 

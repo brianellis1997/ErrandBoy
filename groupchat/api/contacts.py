@@ -15,6 +15,7 @@ from groupchat.schemas.contacts import (
     ContactSearchRequest,
     ContactUpdate,
 )
+from groupchat.schemas.queries import QueryResponse
 from groupchat.services.contacts import ContactService
 
 logger = logging.getLogger(__name__)
@@ -230,4 +231,54 @@ async def add_expertise_to_contact(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to add expertise tags",
+        )
+
+
+@router.get("/{contact_id}/pending-questions")
+async def get_pending_questions(
+    contact_id: UUID,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Get questions waiting for this expert to answer"""
+    try:
+        from sqlalchemy import select
+        from groupchat.db.models import Contribution, Query, QueryStatus
+        
+        # Get contribution requests for this expert that are pending response
+        stmt = (
+            select(Query, Contribution)
+            .join(Contribution, Query.id == Contribution.query_id)
+            .where(Contribution.contact_id == contact_id)
+            .where(Contribution.responded_at.is_(None))
+            .where(Query.status == QueryStatus.COLLECTING)
+            .order_by(Query.created_at.desc())
+        )
+        
+        result = await db.execute(stmt)
+        pending_items = result.all()
+        
+        questions = []
+        for query, contribution in pending_items:
+            questions.append({
+                "query_id": str(query.id),
+                "contribution_id": str(contribution.id),
+                "question_text": query.question_text,
+                "user_phone": query.user_phone,
+                "max_spend_cents": query.total_cost_cents,
+                "created_at": query.created_at.isoformat(),
+                "requested_at": contribution.requested_at.isoformat() if contribution.requested_at else None,
+                "timeout_minutes": query.timeout_minutes
+            })
+        
+        return {
+            "contact_id": str(contact_id),
+            "pending_questions": questions,
+            "total": len(questions)
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting pending questions for contact {contact_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve pending questions"
         )
