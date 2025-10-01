@@ -308,7 +308,7 @@
                             </div>
                         </div>
                         
-                        ${status === 'pending' ? this.createResponseForm(question.id) : ''}
+                        ${status === 'pending' ? this.createResponseForm(question.contribution_id) : ''}
                         ${question.response ? this.createResponseDisplay(question.response) : ''}
                     </div>
                 `;
@@ -354,12 +354,12 @@
                 `;
             }
 
-            async respondToQuestion(questionId, action) {
+            async respondToQuestion(contributionId, action) {
                 try {
                     let responseText = '';
                     
                     if (action === 'answer') {
-                        const textarea = document.getElementById(`response_${questionId}`);
+                        const textarea = document.getElementById(`response_${contributionId}`);
                         responseText = textarea.value.trim();
                         
                         if (!responseText) {
@@ -370,17 +370,20 @@
                         responseText = 'PASS';
                     }
                     
-                    // Submit response
-                    const response = await this.apiClient.request('expert/respond', {
-                        method: 'POST',
+                    // Submit response using the correct API endpoint
+                    const response = await this.apiClient.request(`contributions/${contributionId}`, {
+                        method: 'PUT',
                         body: JSON.stringify({
-                            question_id: questionId,
-                            expert_id: this.currentExpert.id,
-                            response: responseText
+                            response_text: responseText,
+                            confidence_score: 0.8,
+                            source_links: null,
+                            expert_name: this.currentExpert.name
                         })
                     });
                     
-                    if (response.success) {
+                    if (response && response.id) {
+                        // Response submitted successfully - API returns contribution object
+                        alert('Response submitted successfully!');
                         // Reload questions to show updated status
                         this.loadQuestions();
                     } else {

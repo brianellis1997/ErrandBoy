@@ -59,9 +59,10 @@ class ExpertMatchingService:
             candidates = await self._get_candidate_experts()
             logger.debug(f"Found {len(candidates)} candidate experts")
             
-            # Step 2: Filter by basic availability
+            # Step 2: Filter by basic availability and exclude query author
             available_experts = await self._filter_available_experts(candidates)
-            logger.debug(f"Found {len(available_experts)} available experts")
+            available_experts = await self._exclude_query_author(available_experts, query)
+            logger.debug(f"Found {len(available_experts)} available experts (excluding query author)")
             
             # Step 3: Exclude recently contacted experts if requested
             if request.exclude_recent:
@@ -144,6 +145,13 @@ class ExpertMatchingService:
         return [
             expert for expert in candidates
             if expert.is_available
+        ]
+
+    async def _exclude_query_author(self, experts: list[Contact], query: Query) -> list[Contact]:
+        """Exclude the person who asked the question from being matched"""
+        return [
+            expert for expert in experts
+            if expert.phone_number != query.user_phone
         ]
 
     async def _exclude_recent_contacts(
