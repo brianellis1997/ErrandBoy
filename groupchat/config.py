@@ -85,8 +85,8 @@ class Settings(BaseSettings):
     log_level: str = Field(default="INFO")
     log_format: str = Field(default="json")
 
-    # Micropayment Configuration
-    query_price_cents: float = Field(default=0.5)  # Half a cent per query
+    # Micropayment Configuration  
+    query_price_cents: float = Field(default=50)  # 50 cents per expert (so 3 experts = $1.50)
     contributor_pool_percentage: float = Field(default=0.7)  # 70% to contributors
     platform_percentage: float = Field(default=0.2)  # 20% to platform
     referrer_percentage: float = Field(default=0.1)  # 10% to referrers

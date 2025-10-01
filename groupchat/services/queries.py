@@ -37,10 +37,11 @@ class QueryService:
         """Create a new query with validation and embedding generation"""
 
         # Validate budget against minimum requirements
-        min_cost = settings.query_price_cents * query_data.min_experts * 100
-        if query_data.max_spend_cents < min_cost:
+        # query_price_cents is in cents (0.5 = 0.5 cents), min_experts is count
+        min_cost_cents = settings.query_price_cents * query_data.min_experts
+        if query_data.max_spend_cents < min_cost_cents:
             raise ValueError(
-                f"Budget too low. Minimum required: ${min_cost/100:.2f} "
+                f"Budget too low. Minimum required: ${min_cost_cents/100:.2f} "
                 f"for {query_data.min_experts} experts"
             )
 
@@ -76,8 +77,15 @@ class QueryService:
         try:
             await self._process_query_async(query)
         except Exception as e:
-            logger.error(f"Error starting query processing for {query.id}: {e}")
-            # Don't fail query creation if processing fails
+            logger.error(f"Error starting query processing for {query.id}: {e}", exc_info=True)
+            # Don't fail query creation if processing fails - query is already created
+            # Mark as failed in background
+            try:
+                query.status = QueryStatus.FAILED
+                query.error_message = f"Processing failed: {str(e)}"
+                await self.db.commit()
+            except Exception as commit_error:
+                logger.error(f"Failed to update query status: {commit_error}")
         
         return query
 
