@@ -5,12 +5,13 @@
 
 class ExpertInterface {
     constructor() {
+        this.apiClient = new APIClient();
         this.currentExpert = null;
         this.selectedQuestion = null;
         this.questions = [];
         this.responseHistory = [];
         this.refreshInterval = null;
-        
+
         this.expertProfiles = {
             alice_chen: {
                 name: "Dr. Alice Chen",
@@ -439,29 +440,23 @@ class ExpertInterface {
         try {
             // Try to submit to real API first
             try {
-                const apiResponse = await fetch(`/api/v1/queries/${this.selectedQuestion.id}/contributions`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
+                const apiResponse = await this.apiClient.submitContribution(
+                    this.selectedQuestion.id,
+                    {
                         response_text: responseText,
-                        confidence_score: confidence / 10, // Convert to 0.1-1.0 scale
+                        confidence_score: confidence / 10,
                         source_links: sources,
                         expert_name: this.currentExpert.name
-                    })
-                });
-                
-                if (apiResponse.ok) {
-                    const contributionData = await apiResponse.json();
-                    console.log('Successfully submitted contribution:', contributionData);
+                    }
+                );
+
+                if (apiResponse.success) {
+                    console.log('Successfully submitted contribution:', apiResponse.data);
                 } else {
-                    const errorData = await apiResponse.json();
-                    throw new Error(errorData.detail || 'Failed to submit contribution');
+                    throw new Error(apiResponse.error || 'Failed to submit contribution');
                 }
             } catch (apiError) {
                 console.warn('API submission failed, using demo mode:', apiError);
-                // Fall back to demo behavior
                 await new Promise(resolve => setTimeout(resolve, 1500));
             }
             

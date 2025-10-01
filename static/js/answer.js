@@ -82,8 +82,8 @@ class AnswerApp {
     async loadAnswerData() {
         try {
             const [answerResponse, contributionsResponse] = await Promise.all([
-                this.apiClient.get(`/api/v1/queries/${this.queryId}/answer`),
-                this.apiClient.get(`/api/v1/queries/${this.queryId}/contributions`)
+                this.apiClient.get(`queries/${this.queryId}/answer`),
+                this.apiClient.get(`queries/${this.queryId}/contributions`)
             ]);
 
             if (answerResponse.success && answerResponse.data) {

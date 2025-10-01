@@ -68,7 +68,7 @@ class APIClient {
      * Get query status
      */
     async getQueryStatus(queryId) {
-        return this.request(`agent/tools/queries/${queryId}/status`, {
+        return this.request(`queries/${queryId}/status`, {
             method: 'GET'
         });
     }
@@ -144,6 +144,16 @@ class APIClient {
     async getQueryStatusDirect(queryId) {
         return this.wrapResponse(this.request(`queries/${queryId}/status`, {
             method: 'GET'
+        }));
+    }
+
+    /**
+     * Submit contribution to a query
+     */
+    async submitContribution(queryId, contributionData) {
+        return this.wrapResponse(this.request(`queries/${queryId}/contributions`, {
+            method: 'POST',
+            body: JSON.stringify(contributionData)
         }));
     }
 }
