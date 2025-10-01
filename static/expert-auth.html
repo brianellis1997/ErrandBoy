@@ -357,41 +357,50 @@
             async respondToQuestion(contributionId, action) {
                 try {
                     let responseText = '';
-                    
+                    let confidenceScore = 0.8;
+
                     if (action === 'answer') {
                         const textarea = document.getElementById(`response_${contributionId}`);
                         responseText = textarea.value.trim();
-                        
+
                         if (!responseText) {
                             alert('Please enter your response before submitting.');
                             return;
                         }
+
+                        if (responseText.length < 50) {
+                            alert('Response must be at least 50 characters long.');
+                            return;
+                        }
                     } else {
-                        responseText = 'PASS';
+                        responseText = 'I am passing on this question as it falls outside my area of expertise. I recommend finding an expert with more relevant knowledge in this specific domain.';
+                        confidenceScore = 0.1;
                     }
-                    
-                    // Submit response using the correct API endpoint
+
                     const response = await this.apiClient.request(`queries/contributions/${contributionId}`, {
                         method: 'PUT',
                         body: JSON.stringify({
                             response_text: responseText,
-                            confidence_score: 0.8,
+                            confidence_score: confidenceScore,
                             source_links: null,
                             expert_name: this.currentExpert.name
                         })
                     });
-                    
+
                     if (response && response.id) {
-                        // Response submitted successfully - API returns contribution object
                         alert('Response submitted successfully!');
-                        // Reload questions to show updated status
                         this.loadQuestions();
                     } else {
-                        throw new Error(response.error || 'Failed to submit response');
+                        const errorMsg = typeof response === 'object' && response.error
+                            ? response.error
+                            : JSON.stringify(response);
+                        throw new Error(errorMsg || 'Failed to submit response');
                     }
-                    
+
                 } catch (error) {
-                    alert('Failed to submit response: ' + error.message);
+                    const errorMessage = error.message || error.toString();
+                    console.error('Error submitting response:', error);
+                    alert('Failed to submit response: ' + errorMessage);
                 }
             }
 
