@@ -371,7 +371,7 @@
                     }
                     
                     // Submit response using the correct API endpoint
-                    const response = await this.apiClient.request(`contributions/${contributionId}`, {
+                    const response = await this.apiClient.request(`queries/contributions/${contributionId}`, {
                         method: 'PUT',
                         body: JSON.stringify({
                             response_text: responseText,
