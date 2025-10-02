@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi import Query as QueryParam
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from groupchat.config import settings
 from groupchat.db.database import get_db
 from groupchat.db.models import QueryStatus
 from groupchat.schemas.queries import (
@@ -66,9 +67,10 @@ async def create_query(
         )
     except Exception as e:
         logger.error(f"Error creating query: {e}", exc_info=True)
+        error_detail = f"Internal server error: {str(e)}" if settings.app_debug else "Internal server error"
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error"
+            detail=error_detail
         )
 
 
