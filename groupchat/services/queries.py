@@ -564,6 +564,9 @@ class QueryService:
         if not contribution:
             return None
 
+        # Access query_id FIRST before building dict to avoid accessing it later
+        query_id = contribution.query_id
+
         # Build dict within session context
         contrib_dict = {
             "id": contribution.id,
@@ -583,7 +586,7 @@ class QueryService:
         }
 
         # Check if query is ready for synthesis after this response
-        await self.check_and_synthesize_if_ready(contribution.query_id)
+        await self.check_and_synthesize_if_ready(query_id)
 
         return contrib_dict
 

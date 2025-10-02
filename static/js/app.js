@@ -379,10 +379,10 @@ class QueryApp {
         document.getElementById('timeEstimate').textContent = progress.timeEstimate;
 
         // Update query details if available
-        if (status.experts_contacted !== undefined) {
+        if (status.contributors_matched !== undefined) {
             document.getElementById('queryDetails').classList.remove('hidden');
-            document.getElementById('queryId').textContent = status.query_id || 'N/A';
-            document.getElementById('expertsContacted').textContent = status.experts_contacted || 0;
+            document.getElementById('queryId').textContent = status.id || status.query_id || 'N/A';
+            document.getElementById('expertsContacted').textContent = status.contributors_matched || 0;
             document.getElementById('responsesReceived').textContent = status.contributions_received || 0;
         }
     }
