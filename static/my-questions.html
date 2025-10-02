@@ -153,7 +153,7 @@
                 document.getElementById('loadingState').classList.remove('hidden');
 
                 try {
-                    const response = await this.apiClient.get(`queries?user_phone=${encodeURIComponent(this.userPhone)}&limit=100`);
+                    const response = await this.apiClient.get(`queries/?user_phone=${encodeURIComponent(this.userPhone)}&limit=100`);
 
                     if (response.success && response.data) {
                         this.questions = response.data.queries || [];
