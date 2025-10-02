@@ -438,9 +438,7 @@ async def update_contribution(
         raise
     except Exception as e:
         logger.error(f"Error updating contribution {contribution_id}: {e}", exc_info=True)
-        import traceback
-        error_detail = f"{str(e)}\n\nTraceback:\n{traceback.format_exc()}"
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=error_detail
+            detail="Internal server error"
         )
