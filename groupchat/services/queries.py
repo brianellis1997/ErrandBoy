@@ -557,6 +557,36 @@ class QueryService:
         await self.db.refresh(contribution)
         return contribution
 
+    async def update_contribution_dict(self, contribution_id: UUID, contribution_data) -> dict | None:
+        """Update contribution and return as dict to avoid lazy loading"""
+        contribution = await self.update_contribution(contribution_id, contribution_data)
+
+        if not contribution:
+            return None
+
+        # Build dict within session context
+        contrib_dict = {
+            "id": contribution.id,
+            "contact_id": contribution.contact_id,
+            "response_text": contribution.response_text,
+            "confidence_score": contribution.confidence_score,
+            "relevance_score": contribution.relevance_score,
+            "requested_at": contribution.requested_at,
+            "responded_at": contribution.responded_at,
+            "response_time_minutes": contribution.response_time_minutes,
+            "was_used": contribution.was_used,
+            "quality_rating": contribution.quality_rating,
+            "payout_amount_cents": contribution.payout_amount_cents,
+            "extra_metadata": contribution.extra_metadata,
+            "created_at": contribution.created_at,
+            "updated_at": contribution.updated_at
+        }
+
+        # Check if query is ready for synthesis after this response
+        await self.check_and_synthesize_if_ready(contribution.query_id)
+
+        return contrib_dict
+
     def _is_valid_status_transition(
         self,
         current: QueryStatus,

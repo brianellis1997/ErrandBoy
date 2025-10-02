@@ -317,23 +317,26 @@
             createResponseForm(questionId) {
                 return `
                     <div class="mt-4 p-4 bg-gray-50 rounded-lg">
-                        <textarea 
+                        <textarea
                             id="response_${questionId}"
                             placeholder="Share your insights in 1-2 sentences..."
                             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary resize-none"
                             rows="3"
-                            maxlength="500"
+                            maxlength="1000"
+                            oninput="expertAuth.updateCharCount('${questionId}')"
                         ></textarea>
                         <div class="flex justify-between items-center mt-3">
-                            <span class="text-sm text-gray-500">Keep it concise and helpful</span>
+                            <span id="charCount_${questionId}" class="text-sm text-gray-500">
+                                0/50 characters (minimum 50)
+                            </span>
                             <div class="space-x-2">
-                                <button 
+                                <button
                                     onclick="expertAuth.respondToQuestion('${questionId}', 'pass')"
                                     class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
                                 >
                                     Pass
                                 </button>
-                                <button 
+                                <button
                                     onclick="expertAuth.respondToQuestion('${questionId}', 'answer')"
                                     class="px-4 py-2 text-sm font-medium text-white bg-primary border border-transparent rounded-md hover:bg-blue-700"
                                 >
@@ -343,6 +346,21 @@
                         </div>
                     </div>
                 `;
+            }
+
+            updateCharCount(questionId) {
+                const textarea = document.getElementById(`response_${questionId}`);
+                const charCount = document.getElementById(`charCount_${questionId}`);
+                const length = textarea.value.length;
+                const minLength = 50;
+
+                if (length < minLength) {
+                    charCount.textContent = `${length}/${minLength} characters (minimum ${minLength})`;
+                    charCount.className = 'text-sm text-red-500';
+                } else {
+                    charCount.textContent = `${length} characters`;
+                    charCount.className = 'text-sm text-green-600';
+                }
             }
 
             createResponseDisplay(response) {

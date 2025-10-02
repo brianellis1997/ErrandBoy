@@ -420,18 +420,15 @@ async def update_contribution(
     """Update an existing contribution with expert's response"""
     try:
         service = QueryService(db)
-        contribution = await service.update_contribution(contribution_id, contribution_data)
-        
-        if not contribution:
+        contribution_dict = await service.update_contribution_dict(contribution_id, contribution_data)
+
+        if not contribution_dict:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Contribution not found"
             )
-            
-        # Check if query is ready for synthesis after this response
-        await service.check_and_synthesize_if_ready(contribution.query_id)
-            
-        return ContributionResponse.model_validate(contribution)
+
+        return ContributionResponse(**contribution_dict)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
