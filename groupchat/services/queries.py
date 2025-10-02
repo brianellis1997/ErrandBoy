@@ -71,6 +71,12 @@ class QueryService:
         await self.db.commit()
         await self.db.refresh(query)
 
+        # Eagerly load all attributes to prevent lazy loading issues
+        _ = (query.id, query.user_phone, query.question_text, query.status,
+             query.max_experts, query.min_experts, query.timeout_minutes,
+             query.context, query.total_cost_cents, query.platform_fee_cents,
+             query.error_message, query.created_at, query.updated_at, query.deleted_at)
+
         logger.info(f"Created query {query.id} for user {query.user_phone}")
         
         # Trigger query processing workflow for real functionality
