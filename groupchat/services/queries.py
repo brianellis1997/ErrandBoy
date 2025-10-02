@@ -92,8 +92,30 @@ class QueryService:
                 await self.db.commit()
             except Exception as commit_error:
                 logger.error(f"Failed to update query status: {commit_error}")
-        
+
         return query
+
+    async def create_query_dict(self, query_data: QueryCreate) -> dict:
+        """Create query and return as dict to avoid lazy loading issues"""
+        query = await self.create_query(query_data)
+
+        # Build dict within session context
+        return {
+            "id": query.id,
+            "user_phone": query.user_phone,
+            "question_text": query.question_text,
+            "status": query.status.value,
+            "max_experts": query.max_experts,
+            "min_experts": query.min_experts,
+            "timeout_minutes": query.timeout_minutes,
+            "context": query.context if query.context else {},
+            "total_cost_cents": query.total_cost_cents,
+            "platform_fee_cents": query.platform_fee_cents,
+            "error_message": query.error_message,
+            "created_at": query.created_at,
+            "updated_at": query.updated_at,
+            "deleted_at": query.deleted_at
+        }
 
     async def get_query(self, query_id: UUID) -> Query | None:
         """Get query by ID with all relationships"""

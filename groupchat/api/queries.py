@@ -39,25 +39,7 @@ async def create_query(
     """Submit a new query"""
     try:
         service = QueryService(db)
-        query = await service.create_query(query_data)
-
-        # Access all fields within async context to avoid lazy loading
-        query_dict = {
-            "id": query.id,
-            "user_phone": query.user_phone,
-            "question_text": query.question_text,
-            "status": query.status.value,
-            "max_experts": query.max_experts,
-            "min_experts": query.min_experts,
-            "timeout_minutes": query.timeout_minutes,
-            "context": query.context if query.context else {},
-            "total_cost_cents": query.total_cost_cents,
-            "platform_fee_cents": query.platform_fee_cents,
-            "error_message": query.error_message,
-            "created_at": query.created_at,
-            "updated_at": query.updated_at,
-            "deleted_at": query.deleted_at
-        }
+        query_dict = await service.create_query_dict(query_data)
 
         return QueryResponse(**query_dict)
     except ValueError as e:
