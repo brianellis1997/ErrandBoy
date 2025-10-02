@@ -343,3 +343,77 @@ async def seed_demo_data(db: AsyncSession = Depends(get_db)) -> Dict[str, Any]:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to seed demo data: {str(e)}"
         )
+
+
+@router.post("/clear-fake-data")
+async def clear_fake_data(db: AsyncSession = Depends(get_db)) -> Dict[str, Any]:
+    """Remove all fake seed data, keeping only real user profiles (Brian Ellis, Jessica/Alana Ellis)"""
+    try:
+        from sqlalchemy import select, delete
+        from groupchat.db.models import Contact, Query, Contribution, CompiledAnswer, Citation, Ledger, ExpertiseTag, ContactExpertise
+
+        logger.info("Starting cleanup of fake seed data...")
+
+        # Get all contacts
+        result = await db.execute(select(Contact))
+        all_contacts = result.scalars().all()
+
+        # Keep only contacts with "Ellis" in the name
+        real_contact_ids = []
+        fake_contact_ids = []
+
+        for contact in all_contacts:
+            if "Ellis" in contact.name or "ellis" in (contact.email or "").lower():
+                real_contact_ids.append(contact.id)
+                logger.info(f"Keeping real contact: {contact.name} ({contact.email})")
+            else:
+                fake_contact_ids.append(contact.id)
+                logger.info(f"Marking for deletion: {contact.name}")
+
+        # Delete related data for fake contacts
+        if fake_contact_ids:
+            # Delete contact expertise relationships
+            await db.execute(
+                delete(ContactExpertise).where(ContactExpertise.contact_id.in_(fake_contact_ids))
+            )
+
+            # Delete contributions from fake experts
+            await db.execute(
+                delete(Contribution).where(Contribution.contact_id.in_(fake_contact_ids))
+            )
+
+            # Delete ledger entries for fake contacts
+            await db.execute(
+                delete(Ledger).where(Ledger.contact_id.in_(fake_contact_ids))
+            )
+
+            # Delete the fake contacts
+            await db.execute(
+                delete(Contact).where(Contact.id.in_(fake_contact_ids))
+            )
+
+        # Delete all queries and related data (created with fake data)
+        await db.execute(delete(Citation))
+        await db.execute(delete(CompiledAnswer))
+        await db.execute(delete(Contribution))
+        await db.execute(delete(Query))
+
+        await db.commit()
+
+        logger.info(f"Cleanup complete: Kept {len(real_contact_ids)} real contacts, deleted {len(fake_contact_ids)} fake contacts")
+
+        return {
+            "success": True,
+            "message": "Fake data cleared successfully",
+            "real_contacts_kept": len(real_contact_ids),
+            "fake_contacts_deleted": len(fake_contact_ids),
+            "timestamp": datetime.utcnow().isoformat()
+        }
+
+    except Exception as e:
+        logger.error(f"Error clearing fake data: {e}", exc_info=True)
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to clear fake data: {str(e)}"
+        )
