@@ -104,7 +104,9 @@ class QueryService:
             "error_message": query.error_message,
             "created_at": query.created_at,
             "updated_at": query.updated_at,
-            "deleted_at": query.deleted_at
+            "deleted_at": query.deleted_at,
+            "contributors_matched": 0,
+            "contributions_received": 0
         }
 
         # NOW do async processing
