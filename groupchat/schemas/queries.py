@@ -9,8 +9,8 @@ from pydantic import BaseModel, Field, field_validator
 
 class QueryBase(BaseModel):
     question_text: str = Field(..., min_length=10, max_length=5000)
-    max_experts: int = Field(default=5, ge=3, le=10)
-    min_experts: int = Field(default=3, ge=1, le=5)
+    max_experts: int = Field(default=5, ge=1, le=10)
+    min_experts: int = Field(default=1, ge=1, le=5)
     timeout_minutes: int = Field(default=30, ge=5, le=120)
     context: dict[str, Any] = Field(default_factory=dict)
 

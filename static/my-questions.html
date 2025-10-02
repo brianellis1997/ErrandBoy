@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Questions - GroupChat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#64748B',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <header class="bg-white shadow-sm border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div class="flex justify-between items-center">
+                <h1 class="text-2xl font-bold text-gray-900">My Questions</h1>
+                <div class="flex items-center space-x-4">
+                    <span id="userPhone" class="text-sm text-gray-600"></span>
+                    <button onclick="logout()" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                        Log Out
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Login Form (if not authenticated) -->
+        <div id="loginForm" class="max-w-md mx-auto bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold mb-4">View Your Questions</h2>
+            <p class="text-gray-600 mb-4">Enter your phone number to see questions you've asked</p>
+            <form onsubmit="handleLogin(event)">
+                <div class="mb-4">
+                    <label for="phoneInput" class="block text-sm font-medium text-gray-700 mb-2">
+                        Phone Number
+                    </label>
+                    <input
+                        type="tel"
+                        id="phoneInput"
+                        placeholder="+1 (425) 647-9866"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
+                        required
+                    />
+                </div>
+                <button
+                    type="submit"
+                    class="w-full px-4 py-2 text-white bg-primary rounded-md hover:bg-blue-700 font-medium"
+                >
+                    View My Questions
+                </button>
+            </form>
+        </div>
+
+        <!-- Questions Dashboard (after login) -->
+        <div id="questionsDashboard" class="hidden">
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <div class="text-sm font-medium text-gray-600">Total Questions</div>
+                    <div id="totalQuestions" class="text-3xl font-bold text-gray-900 mt-2">0</div>
+                </div>
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <div class="text-sm font-medium text-gray-600">Answered</div>
+                    <div id="answeredCount" class="text-3xl font-bold text-green-600 mt-2">0</div>
+                </div>
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <div class="text-sm font-medium text-gray-600">In Progress</div>
+                    <div id="inProgressCount" class="text-3xl font-bold text-blue-600 mt-2">0</div>
+                </div>
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <div class="text-sm font-medium text-gray-600">Failed</div>
+                    <div id="failedCount" class="text-3xl font-bold text-red-600 mt-2">0</div>
+                </div>
+            </div>
+
+            <!-- Questions List -->
+            <div class="bg-white rounded-lg shadow-md">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h2 class="text-lg font-semibold text-gray-900">Your Questions</h2>
+                </div>
+                <div id="questionsList" class="divide-y divide-gray-200">
+                    <!-- Questions will be loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loadingState" class="hidden text-center py-12">
+            <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            <p class="mt-4 text-gray-600">Loading your questions...</p>
+        </div>
+
+        <!-- Empty State -->
+        <div id="emptyState" class="hidden text-center py-12">
+            <div class="text-gray-400 mb-4">
+                <svg class="mx-auto h-24 w-24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </div>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">No questions yet</h3>
+            <p class="text-gray-600 mb-4">You haven't asked any questions yet.</p>
+            <a href="/static/index.html" class="inline-block px-4 py-2 text-white bg-primary rounded-md hover:bg-blue-700 font-medium">
+                Ask a Question
+            </a>
+        </div>
+    </main>
+
+    <script src="/static/js/api.js"></script>
+    <script>
+        class MyQuestionsApp {
+            constructor() {
+                this.apiClient = new APIClient();
+                this.userPhone = null;
+                this.questions = [];
+                this.checkExistingAuth();
+            }
+
+            checkExistingAuth() {
+                const savedPhone = localStorage.getItem('userPhone');
+                if (savedPhone) {
+                    this.userPhone = savedPhone;
+                    this.showDashboard();
+                    this.loadQuestions();
+                }
+            }
+
+            async handleLogin(phone) {
+                this.userPhone = phone;
+                localStorage.setItem('userPhone', phone);
+                document.getElementById('userPhone').textContent = phone;
+                this.showDashboard();
+                await this.loadQuestions();
+            }
+
+            showDashboard() {
+                document.getElementById('loginForm').classList.add('hidden');
+                document.getElementById('questionsDashboard').classList.remove('hidden');
+                document.getElementById('userPhone').textContent = this.userPhone;
+            }
+
+            async loadQuestions() {
+                document.getElementById('loadingState').classList.remove('hidden');
+
+                try {
+                    const response = await this.apiClient.get(`queries?user_phone=${encodeURIComponent(this.userPhone)}&limit=100`);
+
+                    if (response.success && response.data) {
+                        this.questions = response.data.queries || [];
+                        this.renderQuestions();
+                        this.updateStats();
+                    } else {
+                        this.showError('Failed to load questions');
+                    }
+                } catch (error) {
+                    console.error('Error loading questions:', error);
+                    this.showError('Failed to load questions');
+                } finally {
+                    document.getElementById('loadingState').classList.add('hidden');
+                }
+            }
+
+            updateStats() {
+                const total = this.questions.length;
+                const answered = this.questions.filter(q => q.status === 'completed').length;
+                const inProgress = this.questions.filter(q => ['collecting', 'routing', 'compiling'].includes(q.status)).length;
+                const failed = this.questions.filter(q => q.status === 'failed').length;
+
+                document.getElementById('totalQuestions').textContent = total;
+                document.getElementById('answeredCount').textContent = answered;
+                document.getElementById('inProgressCount').textContent = inProgress;
+                document.getElementById('failedCount').textContent = failed;
+            }
+
+            async renderQuestions() {
+                const container = document.getElementById('questionsList');
+
+                if (this.questions.length === 0) {
+                    document.getElementById('emptyState').classList.remove('hidden');
+                    return;
+                }
+
+                document.getElementById('emptyState').classList.add('hidden');
+
+                for (const question of this.questions) {
+                    const div = document.createElement('div');
+                    div.className = 'p-6 hover:bg-gray-50 transition-colors';
+
+                    const statusBadge = this.getStatusBadge(question.status);
+                    const timeAgo = this.getTimeAgo(new Date(question.created_at));
+
+                    // Get contributions for this question
+                    const contribResponse = await this.apiClient.get(`queries/${question.id}/contributions`);
+                    const contributions = contribResponse.success ? (contribResponse.data.contributions || []) : [];
+                    const answeredContributions = contributions.filter(c => c.response_text && c.response_text.length > 0);
+
+                    div.innerHTML = `
+                        <div class="flex items-start justify-between mb-3">
+                            <div class="flex-1">
+                                <h3 class="text-lg font-medium text-gray-900 mb-2">${this.escapeHtml(question.question_text)}</h3>
+                                <div class="flex items-center space-x-4 text-sm text-gray-600">
+                                    <span>${statusBadge}</span>
+                                    <span>Asked ${timeAgo}</span>
+                                    <span>${answeredContributions.length} response(s) received</span>
+                                </div>
+                            </div>
+                            ${question.status === 'completed' ? `
+                                <a href="/static/answer.html?query_id=${question.id}" class="ml-4 px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-blue-700">
+                                    View Answer
+                                </a>
+                            ` : ''}
+                        </div>
+
+                        ${answeredContributions.length > 0 ? `
+                            <div class="mt-4 space-y-3">
+                                <h4 class="text-sm font-medium text-gray-700">Responses:</h4>
+                                ${answeredContributions.map(contrib => `
+                                    <div class="pl-4 border-l-2 border-gray-300">
+                                        <p class="text-gray-800">${this.escapeHtml(contrib.response_text)}</p>
+                                        <div class="mt-2 text-sm text-gray-500">
+                                            Confidence: ${Math.round(contrib.confidence_score * 10)}/10
+                                            ${contrib.responded_at ? ` • Received ${this.getTimeAgo(new Date(contrib.responded_at))}` : ''}
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : ''}
+                    `;
+
+                    container.appendChild(div);
+                }
+            }
+
+            getStatusBadge(status) {
+                const badges = {
+                    'pending': '<span class="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">Pending</span>',
+                    'routing': '<span class="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">Finding Experts</span>',
+                    'collecting': '<span class="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">Collecting Answers</span>',
+                    'compiling': '<span class="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800">Compiling Answer</span>',
+                    'completed': '<span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">Completed</span>',
+                    'failed': '<span class="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">Failed</span>',
+                };
+                return badges[status] || badges['pending'];
+            }
+
+            getTimeAgo(date) {
+                const now = new Date();
+                const diffMs = now - date;
+                const diffMins = Math.floor(diffMs / 60000);
+                const diffHours = Math.floor(diffMins / 60);
+                const diffDays = Math.floor(diffHours / 24);
+
+                if (diffMins < 1) return 'just now';
+                if (diffMins < 60) return `${diffMins}m ago`;
+                if (diffHours < 24) return `${diffHours}h ago`;
+                return `${diffDays}d ago`;
+            }
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            showError(message) {
+                alert(message);
+            }
+        }
+
+        let app;
+
+        function handleLogin(event) {
+            event.preventDefault();
+            const phone = document.getElementById('phoneInput').value.trim();
+            if (phone) {
+                app.handleLogin(phone);
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('userPhone');
+            location.reload();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            app = new MyQuestionsApp();
+        });
+    </script>
+</body>
+</html>
