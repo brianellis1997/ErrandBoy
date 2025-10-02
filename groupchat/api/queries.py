@@ -67,7 +67,9 @@ async def create_query(
         )
     except Exception as e:
         logger.error(f"Error creating query: {e}", exc_info=True)
-        error_detail = f"Internal server error: {str(e)}" if settings.app_debug else "Internal server error"
+        # Temporarily show actual error for debugging
+        import traceback
+        error_detail = f"{str(e)}\n\nTraceback:\n{traceback.format_exc()}"
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=error_detail
