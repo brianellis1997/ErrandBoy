@@ -41,8 +41,12 @@ async def create_query(
         service = QueryService(db)
         query = await service.create_query(query_data)
 
-        # Use Pydantic's model_validate for proper ORM conversion
-        return QueryResponse.model_validate(query)
+        # Refresh to load all attributes within session
+        await db.refresh(query)
+
+        # Convert to Pydantic model while still in async context
+        response = QueryResponse.model_validate(query)
+        return response
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
