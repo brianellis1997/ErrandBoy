@@ -71,36 +71,26 @@ class QueryService:
         await self.db.commit()
         await self.db.refresh(query)
 
-        # Eagerly load all attributes to prevent lazy loading issues
-        _ = (query.id, query.user_phone, query.question_text, query.status,
-             query.max_experts, query.min_experts, query.timeout_minutes,
-             query.context, query.total_cost_cents, query.platform_fee_cents,
-             query.error_message, query.created_at, query.updated_at, query.deleted_at)
-
         logger.info(f"Created query {query.id} for user {query.user_phone}")
-        
-        # Trigger query processing workflow for real functionality
+
+        # Trigger query processing workflow for real functionality (DON'T wait for it)
         try:
             await self._process_query_async(query)
         except Exception as e:
             logger.error(f"Error starting query processing for {query.id}: {e}", exc_info=True)
-            # Don't fail query creation if processing fails - query is already created
-            # Mark as failed in background
-            try:
-                query.status = QueryStatus.FAILED
-                query.error_message = f"Processing failed: {str(e)}"
-                await self.db.commit()
-            except Exception as commit_error:
-                logger.error(f"Failed to update query status: {commit_error}")
+
+        # Refresh again to get latest state after processing
+        await self.db.refresh(query)
 
         return query
 
     async def create_query_dict(self, query_data: QueryCreate) -> dict:
         """Create query and return as dict to avoid lazy loading issues"""
-        query = await self.create_query(query_data)
+        # Build dict RIGHT after refresh while session is active
+        query = await self._create_query_internal(query_data)
 
-        # Build dict within session context
-        return {
+        # Access all fields IMMEDIATELY after refresh
+        query_dict = {
             "id": query.id,
             "user_phone": query.user_phone,
             "question_text": query.question_text,
@@ -116,6 +106,48 @@ class QueryService:
             "updated_at": query.updated_at,
             "deleted_at": query.deleted_at
         }
+
+        # NOW do async processing
+        try:
+            await self._process_query_async(query)
+        except Exception as e:
+            logger.error(f"Error starting query processing for {query.id}: {e}", exc_info=True)
+            query_dict["status"] = QueryStatus.FAILED.value
+            query_dict["error_message"] = f"Processing failed: {str(e)}"
+
+        return query_dict
+
+    async def _create_query_internal(self, query_data: QueryCreate) -> Query:
+        """Internal method to create query without processing"""
+        # Validate budget
+        min_cost_cents = settings.query_price_cents * query_data.min_experts
+        if query_data.max_spend_cents < min_cost_cents:
+            raise ValueError(
+                f"Budget too low. Minimum required: ${min_cost_cents/100:.2f} "
+                f"for {query_data.min_experts} experts"
+            )
+
+        embedding = None
+        platform_fee = int(query_data.max_spend_cents * settings.platform_percentage)
+
+        query = Query(
+            id=uuid.uuid4(),
+            user_phone=query_data.user_phone,
+            question_text=query_data.question_text,
+            status=QueryStatus.PENDING,
+            max_experts=query_data.max_experts,
+            min_experts=query_data.min_experts,
+            timeout_minutes=query_data.timeout_minutes,
+            total_cost_cents=query_data.max_spend_cents,
+            platform_fee_cents=platform_fee,
+            context=query_data.context
+        )
+
+        self.db.add(query)
+        await self.db.commit()
+        await self.db.refresh(query)
+
+        return query
 
     async def get_query(self, query_id: UUID) -> Query | None:
         """Get query by ID with all relationships"""
