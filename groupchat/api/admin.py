@@ -345,6 +345,39 @@ async def seed_demo_data(db: AsyncSession = Depends(get_db)) -> Dict[str, Any]:
         )
 
 
+@router.get("/test-query-creation")
+async def test_query_creation(db: AsyncSession = Depends(get_db)) -> Dict[str, Any]:
+    """Test query creation to debug issues"""
+    try:
+        from groupchat.services.queries import QueryService
+        from groupchat.schemas.queries import QueryCreate
+
+        test_query_data = QueryCreate(
+            user_phone="+15551234567",
+            question_text="Test question to debug query creation issues",
+            max_spend_cents=500
+        )
+
+        service = QueryService(db)
+        query = await service.create_query(test_query_data)
+
+        return {
+            "success": True,
+            "query_id": str(query.id),
+            "status": query.status.value,
+            "error_message": query.error_message
+        }
+
+    except Exception as e:
+        import traceback
+        return {
+            "success": False,
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "traceback": traceback.format_exc()
+        }
+
+
 @router.post("/clear-fake-data")
 async def clear_fake_data(db: AsyncSession = Depends(get_db)) -> Dict[str, Any]:
     """Remove all fake seed data, keeping only real user profiles (Brian Ellis, Jessica/Alana Ellis)"""
