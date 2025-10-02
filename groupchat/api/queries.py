@@ -40,26 +40,9 @@ async def create_query(
     try:
         service = QueryService(db)
         query = await service.create_query(query_data)
-        
-        # Convert to dict within the async context to avoid lazy loading issues
-        query_dict = {
-            "id": query.id,
-            "user_phone": query.user_phone,
-            "question_text": query.question_text,
-            "status": query.status.value if query.status else "pending",
-            "total_cost_cents": query.total_cost_cents,
-            "platform_fee_cents": query.platform_fee_cents,
-            "error_message": query.error_message,
-            "max_experts": query.max_experts,
-            "min_experts": query.min_experts,
-            "timeout_minutes": query.timeout_minutes,
-            "context": query.context or {},
-            "created_at": query.created_at,
-            "updated_at": query.updated_at,
-            "deleted_at": query.deleted_at
-        }
-        
-        return QueryResponse(**query_dict)
+
+        # Use Pydantic's model_validate for proper ORM conversion
+        return QueryResponse.model_validate(query)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
