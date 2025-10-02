@@ -38,6 +38,9 @@ Base = declarative_base()
 async def init_db() -> None:
     """Initialize database connection and create tables if needed"""
     try:
+        # Import models to register them with Base.metadata
+        from groupchat.db import models  # noqa: F401
+
         # Skip if using default placeholder URL
         db_url = str(settings.database_url)
         if "user:password@localhost" in db_url and "DATABASE_URL" not in os.environ:
@@ -50,7 +53,7 @@ async def init_db() -> None:
             await conn.run_sync(Base.metadata.create_all)
         logger.info("Database connection established successfully")
     except Exception as e:
-        logger.error(f"Failed to initialize database: {e}")
+        logger.error(f"Failed to initialize database: {e}", exc_info=True)
         # Don't raise for now to allow app to start without database
         logger.warning("Running without database connection")
 
