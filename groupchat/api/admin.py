@@ -320,3 +320,26 @@ async def get_contacts_summary(db: AsyncSession = Depends(get_db)) -> Dict[str, 
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to fetch contacts summary",
         )
+
+
+@router.post("/seed-demo-data")
+async def seed_demo_data(db: AsyncSession = Depends(get_db)) -> Dict[str, Any]:
+    """Seed the database with demo/test data"""
+    try:
+        from scripts.enhanced_seed_data import create_enhanced_seed_data
+
+        logger.info("Starting demo data seeding via API...")
+        await create_enhanced_seed_data()
+        logger.info("Demo data seeding completed successfully")
+
+        return {
+            "success": True,
+            "message": "Demo data seeded successfully",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Error seeding demo data: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to seed demo data: {str(e)}"
+        )
