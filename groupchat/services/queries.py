@@ -521,16 +521,29 @@ class QueryService:
     async def update_contribution(self, contribution_id: UUID, contribution_data) -> Contribution | None:
         """Update an existing contribution with expert's response"""
         from sqlalchemy import select, update
-        from datetime import datetime
-        
+        from datetime import datetime, timezone
+
         # Get the existing contribution
         stmt = select(Contribution).where(Contribution.id == contribution_id)
         result = await self.db.execute(stmt)
         contribution = result.scalar_one_or_none()
-        
+
         if not contribution:
             return None
-            
+
+        # Use timezone-aware datetime
+        now = datetime.now(timezone.utc)
+
+        # Calculate response time
+        response_time = None
+        if contribution.requested_at:
+            # Make sure both datetimes are timezone-aware for comparison
+            requested_at = contribution.requested_at
+            if requested_at.tzinfo is None:
+                from datetime import timezone as tz
+                requested_at = requested_at.replace(tzinfo=timezone.utc)
+            response_time = (now - requested_at).total_seconds() / 60.0
+
         # Update the contribution with expert's response
         update_stmt = (
             update(Contribution)
@@ -538,15 +551,15 @@ class QueryService:
             .values(
                 response_text=contribution_data.response_text,
                 confidence_score=contribution_data.confidence_score,
-                responded_at=datetime.utcnow(),
-                response_time_minutes=(datetime.utcnow() - contribution.requested_at).total_seconds() / 60.0 if contribution.requested_at else 0.0,
+                responded_at=now,
+                response_time_minutes=response_time,
                 extra_metadata={
                     **contribution.extra_metadata,
                     "status": "responded",
-                    "responded_at": datetime.utcnow().isoformat(),
+                    "responded_at": now.isoformat(),
                     "source_links": contribution_data.source_links
                 },
-                updated_at=datetime.utcnow()
+                updated_at=now
             )
         )
         
