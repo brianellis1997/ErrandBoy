@@ -71,6 +71,11 @@ class SynthesisService:
             if not contributions:
                 raise ValueError(f"No contributions found for query {query_id}")
 
+            # Option 1: If only one expert responded, skip synthesis and use their answer directly
+            if len(contributions) == 1:
+                logger.info(f"Single expert response for query {query_id}, skipping synthesis")
+                return await self._create_single_expert_answer(query_id, contributions[0])
+
             # Generate unique handles for each contributor
             handle_mapping = self._generate_citation_handles(contributions)
 
@@ -100,7 +105,7 @@ class SynthesisService:
                 final_answer=synthesis_result["answer"],
                 summary=synthesis_result.get("summary"),
                 confidence_score=synthesis_result.get("confidence", 0.85),
-                compilation_method="gpt-4",
+                compilation_method="gpt-4o-mini",
                 compilation_prompt=prompt,
                 compilation_tokens_used=synthesis_result.get("tokens_used", 0)
             )
@@ -134,6 +139,71 @@ class SynthesisService:
             )
             logger.error(f"Failed to synthesize answer for query {query_id}: {e}")
             raise
+
+    async def _create_single_expert_answer(
+        self,
+        query_id: uuid.UUID,
+        contribution_tuple: tuple[Contribution, Contact | None]
+    ) -> CompiledAnswer:
+        """
+        Create a compiled answer from a single expert response without synthesis.
+        This skips the OpenAI synthesis step when only one expert responds.
+        """
+        contribution, contact = contribution_tuple
+
+        # Get expert name for attribution
+        if contact:
+            expert_name = contact.name
+            expertise = contact.expertise_summary or "Expert"
+            attribution = f"Response from {expert_name} ({expertise})"
+        else:
+            expert_name = contribution.extra_metadata.get("expert_name", "Expert")
+            attribution = f"Response from {expert_name}"
+
+        # Use the expert's response directly as the final answer
+        final_answer = f"{contribution.response_text}\n\n— {attribution}"
+
+        # Create a simple summary
+        summary = contribution.response_text[:150] + "..." if len(contribution.response_text) > 150 else contribution.response_text
+
+        # Create compiled answer record
+        compiled_answer = await self._create_compiled_answer(
+            query_id=query_id,
+            final_answer=final_answer,
+            summary=summary,
+            confidence_score=contribution.confidence_score,
+            compilation_method="single-expert",
+            compilation_prompt="",
+            compilation_tokens_used=0
+        )
+
+        # Create a single citation for the expert's contribution
+        citation = Citation(
+            id=uuid.uuid4(),
+            compiled_answer_id=compiled_answer.id,
+            contribution_id=contribution.id,
+            claim_text=contribution.response_text,
+            source_excerpt=contribution.response_text[:200],
+            position_in_answer=0,
+            confidence=contribution.confidence_score
+        )
+        self.db.add(citation)
+        await self.db.commit()
+
+        # Mark the contribution as used with full weight
+        contribution.was_used = True
+        contribution.relevance_score = 1.0
+        await self.db.commit()
+
+        # Update query status to COMPLETED
+        await self._update_query_status(query_id, QueryStatus.COMPLETED)
+
+        # Process micropayment
+        await self._process_micropayment(query_id, compiled_answer.id)
+
+        # Refresh and return
+        await self.db.refresh(compiled_answer)
+        return compiled_answer
 
     def _generate_citation_handles(
         self,
@@ -262,7 +332,7 @@ but concise."""
 
         try:
             response = await self.openai_client.chat.completions.create(
-                model="gpt-4-turbo-preview",
+                model="gpt-4o-mini",
                 messages=[
                     {
                         "role": "system",
