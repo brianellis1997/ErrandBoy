@@ -110,21 +110,21 @@
                 
                 <!-- Stats -->
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
-                    <div class="bg-blue-50 rounded-lg p-4 cursor-pointer hover:bg-blue-100 transition-colors" onclick="expertAuth.filterQuestions('pending')">
+                    <div class="bg-blue-50 rounded-lg p-4 cursor-pointer hover:bg-blue-100 transition-colors" onclick="filterQuestionsByStatus('pending')">
                         <div class="text-2xl font-bold text-blue-700" id="pendingCount">-</div>
                         <div class="text-sm text-blue-600">Pending Questions</div>
                     </div>
-                    <div class="bg-green-50 rounded-lg p-4 cursor-pointer hover:bg-green-100 transition-colors" onclick="expertAuth.filterQuestions('answered')">
+                    <div class="bg-green-50 rounded-lg p-4 cursor-pointer hover:bg-green-100 transition-colors" onclick="filterQuestionsByStatus('answered')">
                         <div class="text-2xl font-bold text-green-700" id="answeredCount">-</div>
                         <div class="text-sm text-green-600">Answered</div>
                     </div>
-                    <div class="bg-yellow-50 rounded-lg p-4 cursor-pointer hover:bg-yellow-100 transition-colors" onclick="expertAuth.filterQuestions('all')">
+                    <div class="bg-yellow-50 rounded-lg p-4 cursor-pointer hover:bg-yellow-100 transition-colors" onclick="filterQuestionsByStatus('all')">
                         <div class="text-2xl font-bold text-yellow-700" id="responseRate">-%</div>
                         <div class="text-sm text-yellow-600">Response Rate</div>
                     </div>
-                    <div class="bg-purple-50 rounded-lg p-4 cursor-pointer hover:bg-purple-100 transition-colors" onclick="window.location.href='/static/my-questions.html'">
+                    <div class="bg-purple-50 rounded-lg p-4">
                         <div class="text-2xl font-bold text-purple-700" id="earnings">$-</div>
-                        <div class="text-sm text-purple-600">Earnings</div>
+                        <div class="text-sm text-purple-600">Total Earnings</div>
                     </div>
                 </div>
             </div>
@@ -526,7 +526,16 @@
 
         // Global functions
         function logout() {
-            location.reload();
+            sessionStorage.removeItem('expertData');
+            sessionStorage.removeItem('userPhone');
+            localStorage.removeItem('userPhone');
+            window.location.href = '/';
+        }
+
+        function filterQuestionsByStatus(status) {
+            if (expertAuth && expertAuth.filterQuestions) {
+                expertAuth.filterQuestions(status);
+            }
         }
 
         // Initialize the expert auth system

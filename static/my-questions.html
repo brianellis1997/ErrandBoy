@@ -331,8 +331,10 @@
         }
 
         function logout() {
+            sessionStorage.removeItem('expertData');
+            sessionStorage.removeItem('userPhone');
             localStorage.removeItem('userPhone');
-            location.reload();
+            window.location.href = '/';
         }
 
         document.addEventListener('DOMContentLoaded', () => {

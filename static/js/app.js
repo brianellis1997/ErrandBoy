@@ -518,6 +518,8 @@ class QueryApp {
  */
 function logoutExpert() {
     sessionStorage.removeItem('expertData');
+    sessionStorage.removeItem('userPhone');
+    localStorage.removeItem('userPhone');
     location.reload();
 }
 
