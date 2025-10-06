@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Expert Dashboard - GroupChat</title>
+    <title>Contributor Dashboard - GroupChat</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -23,8 +23,8 @@
     <div id="authScreen" class="min-h-screen flex items-center justify-center">
         <div class="bg-white rounded-xl shadow-lg p-8 max-w-md w-full mx-4">
             <div class="text-center mb-6">
-                <h1 class="text-2xl font-bold text-gray-900 mb-2">Expert Dashboard</h1>
-                <p class="text-gray-600">Enter your phone number to access your questions</p>
+                <h1 class="text-2xl font-bold text-gray-900 mb-2">Contributor Dashboard</h1>
+                <p class="text-gray-600">Enter your phone number to access questions</p>
             </div>
             
             <form id="authForm">
@@ -40,7 +40,7 @@
                         class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary"
                         required
                     >
-                    <p class="mt-1 text-sm text-gray-500">Use the phone number from your expert profile</p>
+                    <p class="mt-1 text-sm text-gray-500">Use the phone number from your profile</p>
                 </div>
                 
                 <button
@@ -65,7 +65,7 @@
             
             <div class="mt-6 text-center">
                 <p class="text-sm text-gray-600">
-                    Don't have an expert profile? 
+                    Don't have a profile yet?
                     <a href="/signup" class="text-primary hover:text-blue-700 font-medium">Join the network</a>
                 </p>
             </div>
@@ -78,7 +78,7 @@
         <nav class="bg-white shadow-md p-4 mb-6">
             <div class="container mx-auto max-w-6xl flex justify-between items-center">
                 <div>
-                    <h1 class="text-2xl font-bold text-gray-900">GroupChat Expert</h1>
+                    <h1 class="text-2xl font-bold text-gray-900">GroupChat</h1>
                 </div>
                 <div class="flex gap-3">
                     <a href="/" class="text-gray-600 hover:text-gray-900 px-4 py-2 rounded-md transition-colors">
@@ -110,19 +110,19 @@
                 
                 <!-- Stats -->
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
-                    <div class="bg-blue-50 rounded-lg p-4">
+                    <div class="bg-blue-50 rounded-lg p-4 cursor-pointer hover:bg-blue-100 transition-colors" onclick="expertAuth.filterQuestions('pending')">
                         <div class="text-2xl font-bold text-blue-700" id="pendingCount">-</div>
                         <div class="text-sm text-blue-600">Pending Questions</div>
                     </div>
-                    <div class="bg-green-50 rounded-lg p-4">
+                    <div class="bg-green-50 rounded-lg p-4 cursor-pointer hover:bg-green-100 transition-colors" onclick="expertAuth.filterQuestions('answered')">
                         <div class="text-2xl font-bold text-green-700" id="answeredCount">-</div>
                         <div class="text-sm text-green-600">Answered</div>
                     </div>
-                    <div class="bg-yellow-50 rounded-lg p-4">
+                    <div class="bg-yellow-50 rounded-lg p-4 cursor-pointer hover:bg-yellow-100 transition-colors" onclick="expertAuth.filterQuestions('all')">
                         <div class="text-2xl font-bold text-yellow-700" id="responseRate">-%</div>
                         <div class="text-sm text-yellow-600">Response Rate</div>
                     </div>
-                    <div class="bg-purple-50 rounded-lg p-4">
+                    <div class="bg-purple-50 rounded-lg p-4 cursor-pointer hover:bg-purple-100 transition-colors" onclick="window.location.href='/static/my-questions.html'">
                         <div class="text-2xl font-bold text-purple-700" id="earnings">$-</div>
                         <div class="text-sm text-purple-600">Earnings</div>
                     </div>
@@ -160,13 +160,29 @@
                 this.apiClient = new APIClient();
                 this.currentExpert = null;
                 this.initializeEventListeners();
+                this.checkExistingSession();
             }
 
             initializeEventListeners() {
                 document.getElementById('authForm').addEventListener('submit', (e) => this.handleAuth(e));
-                
+
                 // Auto-format phone number
                 document.getElementById('phoneInput').addEventListener('input', (e) => this.formatPhoneNumber(e));
+            }
+
+            checkExistingSession() {
+                // Check if user is already logged in via sessionStorage
+                const expertData = sessionStorage.getItem('expertData');
+                if (expertData) {
+                    try {
+                        this.currentExpert = JSON.parse(expertData);
+                        this.showDashboard();
+                        this.loadQuestions();
+                    } catch (error) {
+                        console.error('Failed to restore session:', error);
+                        sessionStorage.removeItem('expertData');
+                    }
+                }
             }
 
             formatPhoneNumber(event) {
@@ -280,13 +296,36 @@
                     const response = await this.apiClient.request(`contacts/${this.currentExpert.id}/pending-questions`, {
                         method: 'GET'
                     });
-                    
-                    this.displayQuestions(response.pending_questions || []);
-                    
+
+                    this.allQuestions = response.pending_questions || [];
+                    this.displayQuestions(this.allQuestions);
+
                 } catch (error) {
                     console.error('Failed to load questions:', error);
+                    this.allQuestions = [];
                     this.displayQuestions([]);
                 }
+            }
+
+            filterQuestions(filter) {
+                if (!this.allQuestions) {
+                    this.allQuestions = [];
+                }
+
+                let filtered = [];
+
+                if (filter === 'pending') {
+                    filtered = this.allQuestions.filter(q => q.status === 'pending');
+                } else if (filter === 'answered') {
+                    filtered = this.allQuestions.filter(q => q.status === 'answered');
+                } else {
+                    filtered = this.allQuestions;
+                }
+
+                this.displayQuestions(filtered);
+
+                // Scroll to questions section
+                document.getElementById('questionsContainer').scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
 
             displayQuestions(questions) {

@@ -29,7 +29,7 @@
                         Ask Question
                     </a>
                     <a href="/expert/dashboard" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors font-medium">
-                        Expert Dashboard
+                        Answer Questions
                     </a>
                     <span id="userPhone" class="text-sm text-gray-600"></span>
                     <button onclick="logout()" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
@@ -133,8 +133,22 @@
             }
 
             checkExistingAuth() {
-                const savedPhone = localStorage.getItem('userPhone');
-                if (savedPhone) {
+                // Check both localStorage (legacy) and sessionStorage (shared with expert dashboard)
+                const savedPhone = localStorage.getItem('userPhone') || sessionStorage.getItem('userPhone');
+                const expertData = sessionStorage.getItem('expertData');
+
+                if (expertData) {
+                    // User is logged in as expert, use their phone
+                    try {
+                        const expert = JSON.parse(expertData);
+                        this.userPhone = expert.phone_number;
+                        sessionStorage.setItem('userPhone', this.userPhone);
+                        this.showDashboard();
+                        this.loadQuestions();
+                    } catch (error) {
+                        console.error('Failed to parse expert data:', error);
+                    }
+                } else if (savedPhone) {
                     this.userPhone = savedPhone;
                     this.showDashboard();
                     this.loadQuestions();
@@ -143,7 +157,9 @@
 
             async handleLogin(phone) {
                 this.userPhone = phone;
+                // Store in both localStorage and sessionStorage for cross-page sharing
                 localStorage.setItem('userPhone', phone);
+                sessionStorage.setItem('userPhone', phone);
                 document.getElementById('userPhone').textContent = phone;
                 this.showDashboard();
                 await this.loadQuestions();
