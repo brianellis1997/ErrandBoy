@@ -186,15 +186,30 @@
                 }
             }
 
+            normalizePhoneNumber(phone) {
+                const digits = phone.replace(/\D/g, '');
+
+                if (digits.length === 11 && digits.startsWith('1')) {
+                    return '+' + digits;
+                } else if (digits.length === 10) {
+                    return '+1' + digits;
+                } else if (digits.length === 11) {
+                    return '+' + digits;
+                } else {
+                    return phone.startsWith('+') ? phone : '+' + digits;
+                }
+            }
+
             async handleAuth(event) {
                 event.preventDefault();
-                
-                const phone = document.getElementById('phoneInput').value.trim();
-                
+
+                const rawPhone = document.getElementById('phoneInput').value.trim();
+                const phone = this.normalizePhoneNumber(rawPhone);
+
                 try {
                     this.setAuthLoading(true);
                     this.hideAuthError();
-                    
+
                     // Call the backend to authenticate and get expert profile
                     const response = await this.apiClient.request('expert/authenticate', {
                         method: 'POST',

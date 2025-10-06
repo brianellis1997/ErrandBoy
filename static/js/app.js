@@ -164,12 +164,30 @@ class QueryApp {
     }
 
     /**
+     * Normalize phone number to +1XXXXXXXXXX format
+     */
+    normalizePhoneNumber(phone) {
+        const digits = phone.replace(/\D/g, '');
+
+        if (digits.length === 11 && digits.startsWith('1')) {
+            return '+' + digits;
+        } else if (digits.length === 10) {
+            return '+1' + digits;
+        } else if (digits.length === 11) {
+            return '+' + digits;
+        } else {
+            return phone.startsWith('+') ? phone : '+' + digits;
+        }
+    }
+
+    /**
      * Get form data
      */
     getFormData() {
+        const rawPhone = document.getElementById('phone').value.trim();
         return {
             question: document.getElementById('question').value.trim(),
-            phone: document.getElementById('phone').value.trim(),
+            phone: this.normalizePhoneNumber(rawPhone),
             budgetCents: parseInt(document.getElementById('budget').value)
         };
     }
