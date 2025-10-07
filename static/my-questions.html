@@ -161,6 +161,23 @@
                 localStorage.setItem('userPhone', phone);
                 sessionStorage.setItem('userPhone', phone);
                 document.getElementById('userPhone').textContent = phone;
+
+                // Try to fetch expert profile for cross-page navigation
+                try {
+                    const response = await this.apiClient.request('expert/authenticate', {
+                        method: 'POST',
+                        body: JSON.stringify({ phone_number: phone })
+                    });
+
+                    if (response.expert) {
+                        // Store expert data for dashboard access
+                        sessionStorage.setItem('expertData', JSON.stringify(response.expert));
+                    }
+                } catch (error) {
+                    // Not an expert, that's fine - just viewing questions
+                    console.log('Not logged in as contributor, viewing questions only');
+                }
+
                 this.showDashboard();
                 await this.loadQuestions();
             }

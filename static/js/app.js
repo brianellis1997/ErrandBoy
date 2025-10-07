@@ -78,6 +78,8 @@ class QueryApp {
      */
     logoutExpert() {
         sessionStorage.removeItem('expertData');
+        sessionStorage.removeItem('userPhone');
+        localStorage.removeItem('userPhone');
         location.reload();
     }
 
