@@ -340,28 +340,41 @@ class QueryApp {
      * Show live mode started message
      */
     showLiveModeStarted(responseData) {
-        const smsCount = responseData.sms_sent || 0;
-        const expertsMatched = responseData.experts_matched || 0;
-        
+        const contributorsMatched = responseData.contributors_matched || 0;
+        const contributionsReceived = responseData.contributions_received || 0;
+
         // Update progress section with live mode info
         document.getElementById('progressBar').style.width = '30%';
         document.getElementById('progressPercent').textContent = '30%';
         document.getElementById('progressStatus').textContent = '🔴 Live Network Active';
-        
-        // For MVP, show generic message since we don't have SMS/matching data yet
-        document.getElementById('statusMessage').textContent = 
-            `Your question has been submitted to the expert network. We're processing your query and will match it with relevant experts.`;
-        
+
+        // For MVP, show generic message
+        document.getElementById('statusMessage').textContent =
+            `Your question has been submitted to the network. We're matching it with knowledgeable contributors.`;
+
         document.getElementById('timeEstimate').textContent = 'Estimated time: 5-30 minutes (live responses)';
-        
-        // Show query details
+
+        // Show query details with loading state
         document.getElementById('queryDetails').classList.remove('hidden');
         document.getElementById('queryId').textContent = responseData.id || responseData.query_id;
-        document.getElementById('expertsContacted').textContent = smsCount;
-        document.getElementById('responsesReceived').textContent = '0';
-        
-        // Start tracking but with longer intervals for live mode
+        document.getElementById('expertsContacted').textContent = contributorsMatched > 0 ? contributorsMatched : '...';
+        document.getElementById('responsesReceived').textContent = contributionsReceived;
+
+        // Start tracking immediately for live mode
         this.startStatusTracking(responseData.id || responseData.query_id, true);
+
+        // Do an immediate status check to get latest contributors count
+        setTimeout(async () => {
+            try {
+                const status = await this.apiClient.getQueryStatus(responseData.id || responseData.query_id);
+                if (status && status.contributors_matched !== undefined) {
+                    document.getElementById('expertsContacted').textContent = status.contributors_matched || 0;
+                    document.getElementById('responsesReceived').textContent = status.contributions_received || 0;
+                }
+            } catch (error) {
+                console.error('Failed to get immediate status update:', error);
+            }
+        }, 2000); // Check after 2 seconds
     }
 
     /**
