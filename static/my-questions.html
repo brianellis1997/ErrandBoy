@@ -348,10 +348,14 @@
         }
 
         function logout() {
-            sessionStorage.removeItem('expertData');
-            sessionStorage.removeItem('userPhone');
-            localStorage.removeItem('userPhone');
-            window.location.href = '/';
+            // Clear all session and local storage
+            sessionStorage.clear();
+            localStorage.clear();
+
+            // Small delay to ensure storage is cleared before redirect
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 100);
         }
 
         document.addEventListener('DOMContentLoaded', () => {

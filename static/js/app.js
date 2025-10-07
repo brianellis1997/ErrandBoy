@@ -77,9 +77,9 @@ class QueryApp {
      * Logout expert (allow different phone number)
      */
     logoutExpert() {
-        sessionStorage.removeItem('expertData');
-        sessionStorage.removeItem('userPhone');
-        localStorage.removeItem('userPhone');
+        // Clear all session and local storage
+        sessionStorage.clear();
+        localStorage.clear();
         location.reload();
     }
 
@@ -519,9 +519,9 @@ class QueryApp {
  * Logout expert (allow different phone number)
  */
 function logoutExpert() {
-    sessionStorage.removeItem('expertData');
-    sessionStorage.removeItem('userPhone');
-    localStorage.removeItem('userPhone');
+    // Clear all session and local storage
+    sessionStorage.clear();
+    localStorage.clear();
     location.reload();
 }
 
