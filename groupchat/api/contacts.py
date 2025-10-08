@@ -245,12 +245,13 @@ async def get_pending_questions(
         from groupchat.db.models import Contribution, Query, QueryStatus
         
         # Get contribution requests for this expert that are pending response
+        # Include COMPILING status so experts can still respond even if synthesis has started
         stmt = (
             select(Query, Contribution)
             .join(Contribution, Query.id == Contribution.query_id)
             .where(Contribution.contact_id == contact_id)
             .where(Contribution.responded_at.is_(None))
-            .where(Query.status == QueryStatus.COLLECTING)
+            .where(Query.status.in_([QueryStatus.COLLECTING, QueryStatus.COMPILING]))
             .order_by(Query.created_at.desc())
         )
         

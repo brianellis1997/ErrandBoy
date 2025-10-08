@@ -10,7 +10,9 @@
       "Bash(source:*)",
       "Bash(conda activate:*)",
       "Bash(echo:*)",
-      "Bash(tee:*)"
+      "Bash(tee:*)",
+      "Bash(python:*)",
+      "Bash(PYTHONPATH=/Users/bdogellis/ErrandBoy python3 /tmp/check_little_john.py)"
     ],
     "deny": [],
     "ask": []

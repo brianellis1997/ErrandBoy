@@ -53,13 +53,14 @@ class APIClient {
     /**
      * Submit a new query
      */
-    async submitQuery(userPhone, questionText, maxSpendCents, liveMode = false) {
+    async submitQuery(userPhone, questionText, maxSpendCents, liveMode = false, minExperts = 3) {
         return this.request('queries/', {
             method: 'POST',
             body: JSON.stringify({
                 user_phone: userPhone,
                 question_text: questionText,
-                max_spend_cents: maxSpendCents
+                max_spend_cents: maxSpendCents,
+                min_experts: minExperts
             })
         });
     }
