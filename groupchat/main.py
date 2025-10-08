@@ -10,7 +10,6 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from groupchat.api import admin, agent, contacts, demo, expert_preferences, health, ledger, matching, payments, queries, webhooks, websockets
-from test_endpoint import router as test_router
 from groupchat.config import settings
 from groupchat.db.database import close_db, init_db
 from groupchat.middleware.request_id import RequestIDMiddleware
@@ -204,13 +203,6 @@ app.include_router(
     tags=["expert-preferences"]
 )
 
-# Test router for debugging
-app.include_router(
-    test_router,
-    prefix="/api/v1/test",
-    tags=["test"]
-)
-
 # Answer display route
 @app.get("/answer/{query_id}")
 async def answer_page(query_id: str):
@@ -229,74 +221,6 @@ async def answer_page(query_id: str):
         # Fallback to redirect to static file with query parameter
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url=f"/static/answer.html?query_id={query_id}")
-
-
-# Expert interface route
-@app.get("/expert")
-async def expert_interface():
-    """Serve expert response interface"""
-    from fastapi.responses import FileResponse
-    import os
-    
-    # Check if expert.html exists
-    static_path = os.path.join("static", "expert.html")
-    if os.path.exists(static_path):
-        return FileResponse(static_path)
-    else:
-        # Fallback to redirect to static file
-        from fastapi.responses import RedirectResponse
-        return RedirectResponse(url="/static/expert.html")
-
-
-# Enhanced expert interface route
-@app.get("/expert/enhanced")
-async def enhanced_expert_interface():
-    """Serve enhanced expert response interface with real-time notifications"""
-    from fastapi.responses import FileResponse
-    import os
-    
-    # Serve the enhanced expert interface
-    static_path = os.path.join("static", "expert-enhanced.html")
-    if os.path.exists(static_path):
-        return FileResponse(static_path)
-    else:
-        # Fallback to redirect to static file
-        from fastapi.responses import RedirectResponse
-        return RedirectResponse(url="/static/expert-enhanced.html")
-
-
-# Admin dashboard route
-@app.get("/admin")
-async def admin_dashboard():
-    """Serve admin dashboard interface"""
-    from fastapi.responses import FileResponse
-    import os
-    
-    # Check if admin.html exists
-    static_path = os.path.join("static", "admin.html")
-    if os.path.exists(static_path):
-        return FileResponse(static_path)
-    else:
-        # Fallback to redirect to static file
-        from fastapi.responses import RedirectResponse
-        return RedirectResponse(url="/static/admin.html")
-
-
-# Demo control panel route
-@app.get("/demo")
-async def demo_control_panel():
-    """Serve demo control panel interface"""
-    from fastapi.responses import FileResponse
-    import os
-    
-    # Check if demo.html exists
-    static_path = os.path.join("static", "demo.html")
-    if os.path.exists(static_path):
-        return FileResponse(static_path)
-    else:
-        # Fallback to redirect to static file
-        from fastapi.responses import RedirectResponse
-        return RedirectResponse(url="/static/demo.html")
 
 
 # Expert signup route
