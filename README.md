@@ -33,15 +33,14 @@ git clone https://github.com/brianellis1997/ErrandBoy.git
 cd ErrandBoy
 ```
 
-2. **Run the setup script**
+2. **Activate conda environment**
 ```bash
-chmod +x scripts/setup_dev.sh
-./scripts/setup_dev.sh
+conda activate GroupChat
 ```
 
-3. **Start PostgreSQL and Redis with Docker**
+3. **Install dependencies**
 ```bash
-docker-compose up -d postgres redis
+python -m pip install -r requirements.txt
 ```
 
 4. **Configure environment variables**
@@ -50,79 +49,13 @@ cp .env.example .env
 # Edit .env with your configuration
 ```
 
-5. **Run database migrations**
+5. **Start the development server**
 ```bash
-poetry run alembic upgrade head
+python -m uvicorn groupchat.main:app --reload
 ```
 
-6. **Start the development server**
-```bash
-poetry run uvicorn groupchat.main:app --reload
-```
-
-7. **View API documentation**
+6. **View API documentation**
 Open http://localhost:8000/docs in your browser
-
-## Demo System
-
-GroupChat includes a comprehensive demo system for presentations and testing. The demo orchestrates the complete end-to-end workflow with realistic scenarios and expert responses.
-
-### Quick Demo
-
-1. **Access Demo Control Panel**
-   ```
-   http://localhost:8000/demo
-   ```
-
-2. **Available Demo Scenarios**
-   - **Technical Question**: PostgreSQL scaling with database experts
-   - **Business Strategy**: Startup product-market fit with industry experts  
-   - **Creative Problem**: Remote team collaboration with UX and leadership experts
-
-3. **Demo Modes**
-   - **Fast Mode**: 10x accelerated timing for quick presentations
-   - **Realistic Mode**: Production-like timing and behavior
-   - **Manual Mode**: Full manual control over progression
-
-### Demo Features
-
-- 🎭 **End-to-End Workflow**: Complete question → expert responses → synthesized answer
-- 🖥️ **Multi-Screen Coordination**: Synchronized views across user, expert, and admin interfaces
-- ⏯️ **Full Control**: Start, pause, resume, reset, and skip functionality
-- 📊 **Real-Time Progress**: Live updates via WebSocket connections
-- 🎯 **Realistic Scenarios**: Pre-crafted questions with expert responses and citations
-- 💰 **Payment Simulation**: Demonstrates micropayment distribution
-
-### API Usage
-
-```bash
-# List available scenarios
-curl http://localhost:8000/api/v1/demo/scenarios
-
-# Start a demo
-curl -X POST http://localhost:8000/api/v1/demo/start \
-  -H "Content-Type: application/json" \
-  -d '{"scenario_id": "tech-scaling", "mode": "fast"}'
-
-# Check demo status  
-curl http://localhost:8000/api/v1/demo/status
-
-# Control demo (pause/resume/reset)
-curl -X POST http://localhost:8000/api/v1/demo/control \
-  -H "Content-Type: application/json" \
-  -d '{"action": "reset"}'
-```
-
-### Multi-Screen Setup
-
-For presentations, the demo system supports coordinated multi-screen setups:
-
-1. **Primary Screen**: Demo control panel (`/demo`)
-2. **User Screen**: Query submission interface (`/`)  
-3. **Expert Screen**: Expert response interface (`/expert`)
-4. **Admin Screen**: System monitoring dashboard (`/admin`)
-
-All screens are synchronized via WebSocket connections and update in real-time as the demo progresses.
 
 ## Project Structure
 
@@ -130,15 +63,13 @@ All screens are synchronized via WebSocket connections and update in real-time a
 ErrandBoy/
 ├── groupchat/           # Main application package
 │   ├── api/            # FastAPI endpoints
+│   ├── agent/          # AI agent tools and workflows
 │   ├── db/             # Database models and connections
 │   ├── services/       # Business logic and external services
-│   ├── tools/          # Agent tools for LangGraph
-│   ├── workflows/      # Query processing workflows
 │   └── utils/          # Utility functions
-├── migrations/         # Alembic database migrations
-├── tests/             # Test suite
-├── scripts/           # Development and deployment scripts
-└── docker-compose.yml # Local development services
+├── static/             # Frontend HTML/CSS/JS
+├── migrations/         # Alembic database migrations (if needed)
+└── scripts/            # Development scripts
 ```
 
 ## Architecture
@@ -448,35 +379,31 @@ CACHE_TTL_SECONDS=3600
 
 ## Deployment
 
-### Docker Deployment
-```bash
-# Build image
-docker build -t groupchat-api .
+### Railway Deployment
 
-# Run with docker-compose
-docker-compose up -d
+GroupChat is deployed on [Railway](https://railway.app):
+
+**Live URL**: https://web-production-92dde.up.railway.app
+
+**Deployment Process**:
+1. Push changes to `main` branch
+2. Railway automatically builds and deploys
+3. Deployment completes in 30-60 seconds
+
+**Environment Variables** (set via Railway dashboard):
+- `DATABASE_URL` - Automatically provided by Railway PostgreSQL
+- `OPENAI_API_KEY` - Your OpenAI API key
+- `TWILIO_ACCOUNT_SID` - Twilio SID (for SMS)
+- `TWILIO_AUTH_TOKEN` - Twilio token (for SMS)
+- `TWILIO_PHONE_NUMBER` - Twilio phone number (for SMS)
+
+**Check Deployment**:
+```bash
+# Open live app
+open https://web-production-92dde.up.railway.app
 
 # Health check
-curl http://localhost:8000/health/ready
-```
-
-### Production Configuration
-```bash
-# Set production environment
-APP_ENV=production
-APP_DEBUG=false
-
-# Use production database
-DATABASE_URL=postgresql+asyncpg://user:pass@prod-db:5432/groupchat
-
-# Configure logging
-LOG_LEVEL=INFO
-LOG_FORMAT=json
-
-# Enable all features
-ENABLE_SMS=true
-ENABLE_PAYMENTS=true
-ENABLE_REAL_EMBEDDINGS=true
+curl https://web-production-92dde.up.railway.app/health/ready
 ```
 
 ## Contributing
