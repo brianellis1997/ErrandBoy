@@ -56,8 +56,7 @@ class QueryApp {
      * Update navigation to show logged in expert
      */
     updateNavigationForLoggedInExpert(expert) {
-        // Find the navigation buttons container
-        const navButtons = document.querySelector('nav .flex.gap-3');
+        const navButtons = document.getElementById('navButtons');
         if (navButtons) {
             navButtons.innerHTML = `
                 <span class="text-sm text-gray-600 px-3 py-2">
@@ -66,7 +65,7 @@ class QueryApp {
                 <a href="/expert/dashboard" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors font-medium">
                     Dashboard
                 </a>
-                <button onclick="logoutExpert()" class="text-gray-600 hover:text-gray-900 px-4 py-2 rounded-md transition-colors">
+                <button onclick="logoutExpert()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md transition-colors font-medium">
                     Logout
                 </button>
             `;
@@ -77,10 +76,11 @@ class QueryApp {
      * Logout expert (allow different phone number)
      */
     logoutExpert() {
-        // Clear all session and local storage
         sessionStorage.clear();
         localStorage.clear();
-        location.reload();
+        setTimeout(() => {
+            location.reload();
+        }, 100);
     }
 
     /**
@@ -532,10 +532,11 @@ class QueryApp {
  * Logout expert (allow different phone number)
  */
 function logoutExpert() {
-    // Clear all session and local storage
     sessionStorage.clear();
     localStorage.clear();
-    location.reload();
+    setTimeout(() => {
+        location.reload();
+    }, 100);
 }
 
 /**
