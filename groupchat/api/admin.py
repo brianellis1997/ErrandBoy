@@ -450,3 +450,71 @@ async def clear_fake_data(db: AsyncSession = Depends(get_db)) -> Dict[str, Any]:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to clear fake data: {str(e)}"
         )
+
+
+@router.post("/clear-all-data")
+async def clear_all_data(
+    confirm: str,
+    db: AsyncSession = Depends(get_db)
+) -> Dict[str, Any]:
+    """
+    DANGER: Clear ALL data from the database for clean production launch.
+    Requires confirmation code to prevent accidental deletion.
+
+    Usage: POST /api/v1/admin/clear-all-data?confirm=DELETE_EVERYTHING
+    """
+    if confirm != "DELETE_EVERYTHING":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid confirmation code. Use ?confirm=DELETE_EVERYTHING to proceed."
+        )
+
+    try:
+        from sqlalchemy import delete
+        from groupchat.db.models import (
+            Contact, Query, Contribution, CompiledAnswer,
+            Citation, ExpertiseTag, ContactExpertise
+        )
+
+        logger.warning("⚠️  CLEARING ALL PRODUCTION DATA - This action is irreversible!")
+
+        counts = {}
+
+        # Delete in correct order to respect foreign keys
+        result = await db.execute(delete(Citation))
+        counts["citations"] = result.rowcount
+
+        result = await db.execute(delete(CompiledAnswer))
+        counts["compiled_answers"] = result.rowcount
+
+        result = await db.execute(delete(Contribution))
+        counts["contributions"] = result.rowcount
+
+        result = await db.execute(delete(Query))
+        counts["queries"] = result.rowcount
+
+        result = await db.execute(delete(ContactExpertise))
+        counts["contact_expertise"] = result.rowcount
+
+        result = await db.execute(delete(Contact))
+        counts["contacts"] = result.rowcount
+
+        await db.commit()
+
+        logger.info(f"✅ All data cleared successfully: {counts}")
+
+        return {
+            "success": True,
+            "message": "All production data has been cleared",
+            "records_deleted": counts,
+            "total_deleted": sum(counts.values()),
+            "timestamp": datetime.utcnow().isoformat()
+        }
+
+    except Exception as e:
+        logger.error(f"❌ Error clearing all data: {e}", exc_info=True)
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to clear all data: {str(e)}"
+        )
