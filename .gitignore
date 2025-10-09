@@ -185,6 +185,9 @@ migrations/versions/*.pyc
 # Testing
 .benchmarks/
 .ruff_cache/
+test_results/
+test_output/
+.test_artifacts/
 
 # Documentation builds
 docs/build/
